@@ -1,5 +1,11 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-24 - v1.0.3: Fix gateway registration hook
+
+### Bug Fix
+- Fixed `code_GatewayModel` hook: renamed method from `gatewayClasses()` to `gateways()` to match `\IPS\nexus\Gateway` parent method signature. This caused PayNow Checkout to not appear in the ACP gateway selection list.
+- Aligned error handling pattern with xstripecheckout/xpolarcheckout siblings (DEBUG_HOOKS logging, parent fallback).
+
 ## 2026-02-24 - v1.0.2: Phase 1 — Core Checkout Flow
 
 ### Core Checkout (`auth()`)

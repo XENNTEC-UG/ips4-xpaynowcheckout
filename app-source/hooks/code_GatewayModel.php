@@ -8,22 +8,37 @@ if ( !\defined( '\IPS\SUITE_UNIQUE_KEY' ) )
 
 class xpaynowcheckout_hook_code_GatewayModel extends _HOOK_CLASS_
 {
+
+
 	/**
-	 * Register the PayNow Checkout gateway class in Gateway::$gatewayMap.
-	 *
+	 * Gateways
+	 * @xenntec.com
 	 * @return	array
 	 */
-	public static function gatewayClasses()
+	public static function gateways()
 	{
 		try
 		{
-			$return = parent::gatewayClasses();
-			$return['XPaynowCheckout'] = 'IPS\xpaynowcheckout\XPaynowCheckout';
-			return $return;
+			$array = parent::gateways();
+			$array['XPaynowCheckout'] = 'IPS\\xpaynowcheckout\\XPaynowCheckout';
+			return $array;
 		}
 		catch ( \Throwable $e )
 		{
-			return parent::gatewayClasses();
+			if( \defined( '\IPS\DEBUG_HOOKS' ) AND \IPS\DEBUG_HOOKS )
+			{
+				\IPS\Log::log( $e, 'hook_exception' );
+			}
+
+			if ( method_exists( get_parent_class(), __FUNCTION__ ) )
+			{
+				return \call_user_func_array( 'parent::' . __FUNCTION__, \func_get_args() );
+			}
+			else
+			{
+				throw $e;
+			}
 		}
 	}
+
 }
