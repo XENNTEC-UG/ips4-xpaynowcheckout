@@ -70,12 +70,85 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	 */
 	public function auth( \IPS\nexus\Transaction $transaction, $values, \IPS\nexus\Fraud\MaxMind\Request $maxMind = NULL, $recurrings = array(), $source = NULL )
 	{
-		// TODO: Implement PayNow checkout session creation
-		// 1. Resolve or create PayNow customer for the IPS member
-		// 2. Build checkout lines from invoice items
-		// 3. POST /v1/stores/{storeId}/checkouts
-		// 4. Redirect to checkout URL or open paynow.js overlay
-		throw new \DomainException( 'PayNow Checkout gateway is not yet implemented.' );
+		$settings = json_decode( $this->settings, TRUE );
+		if ( !\is_array( $settings ) )
+		{
+			throw new \LogicException( 'xpaynowcheckout_invalid_settings' );
+		}
+
+		$apiKey = isset( $settings['api_key'] ) ? \trim( (string) $settings['api_key'] ) : '';
+		$storeId = isset( $settings['store_id'] ) ? \trim( (string) $settings['store_id'] ) : '';
+		$defaultProductId = isset( $settings['default_product_id'] ) ? \trim( (string) $settings['default_product_id'] ) : '';
+
+		if ( $apiKey === '' OR $storeId === '' OR $defaultProductId === '' )
+		{
+			throw new \LogicException( 'xpaynowcheckout_missing_required_settings' );
+		}
+
+		/* Persist transaction so $transaction->id is available for metadata */
+		$transaction->save();
+
+		/* Resolve or create PayNow customer */
+		$customerId = $this->getPaynowCustomer( $transaction, $settings );
+
+		/* Build checkout lines — single line with default product */
+		$lines = array(
+			array(
+				'product_id'   => $defaultProductId,
+				'quantity'     => 1,
+				'subscription' => FALSE,
+			),
+		);
+
+		/* Build return/cancel URLs */
+		$returnUrl = !empty( $settings['return_url'] )
+			? (string) $settings['return_url']
+			: (string) $transaction->url()->setQueryString( 'pending', 1 );
+		$cancelUrl = !empty( $settings['cancel_url'] )
+			? (string) $settings['cancel_url']
+			: (string) $transaction->invoice->checkoutUrl();
+
+		/* Create checkout session */
+		$checkoutBody = array(
+			'customer_id'   => $customerId,
+			'lines'         => $lines,
+			'return_url'    => $returnUrl,
+			'cancel_url'    => $cancelUrl,
+			'auto_redirect' => TRUE,
+			'metadata'      => array(
+				'ips_transaction_id' => (string) (int) $transaction->id,
+				'ips_invoice_id'     => (string) (int) $transaction->invoice->id,
+				'ips_member_id'      => $transaction->member ? (string) (int) $transaction->member->member_id : '',
+				'gateway_id'         => (string) (int) $this->id,
+			),
+		);
+
+		try
+		{
+			$response = static::apiRequest( 'post', '/stores/' . $storeId . '/checkouts', $settings, $checkoutBody );
+		}
+		catch ( \Exception $e )
+		{
+			\IPS\Log::log( $e, 'xpaynowcheckout_auth' );
+			throw new \LogicException( 'gateway_err' );
+		}
+
+		$checkoutUrl = ( \is_array( $response ) AND isset( $response['url'] ) AND \is_string( $response['url'] ) ) ? $response['url'] : '';
+		if ( $checkoutUrl === '' )
+		{
+			throw new \LogicException( 'gateway_err' );
+		}
+
+		/* Store checkout session ID for webhook correlation */
+		if ( isset( $response['id'] ) AND \is_string( $response['id'] ) )
+		{
+			$transaction->gw_id = $response['id'];
+			$transaction->save();
+		}
+
+		/* Redirect to PayNow hosted checkout */
+		\IPS\Output::i()->redirect( \IPS\Http\Url::external( $checkoutUrl ) );
+		return NULL;
 	}
 
 	/**
@@ -89,7 +162,17 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	 */
 	public function checkValidity( \IPS\nexus\Money $amount, \IPS\GeoLocation $billingAddress = NULL, \IPS\nexus\Customer $customer = NULL, $recurrings = array() )
 	{
-		// TODO: Validate currency against PayNow store settings
+		$settings = json_decode( $this->settings, TRUE );
+
+		/* Block if essential settings are missing */
+		if ( !\is_array( $settings )
+			OR empty( $settings['api_key'] )
+			OR empty( $settings['store_id'] )
+			OR empty( $settings['default_product_id'] ) )
+		{
+			return FALSE;
+		}
+
 		return parent::checkValidity( $amount, $billingAddress, $customer, $recurrings );
 	}
 
@@ -112,6 +195,7 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		$form->addHeader( 'xpaynowcheckout_credentials' );
 		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_api_key', isset( $settings['api_key'] ) ? $settings['api_key'] : NULL, TRUE ) );
 		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_store_id', isset( $settings['store_id'] ) ? $settings['store_id'] : NULL, TRUE ) );
+		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_default_product_id', isset( $settings['default_product_id'] ) ? $settings['default_product_id'] : NULL, TRUE ) );
 
 		$form->addHeader( 'xpaynowcheckout_webhook' );
 		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_webhook_url', isset( $settings['webhook_url'] ) ? $settings['webhook_url'] : NULL, FALSE, array( 'disabled' => !isset( $settings['webhook_url'] ) ) ) );
@@ -146,10 +230,70 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 			$settings = array();
 		}
 
-		// TODO: Validate API key by calling GET /v1/stores/{storeId}/products?limit=1
-		// TODO: Create webhook endpoint if webhook_url and webhook_secret are empty
-		//       POST /v1/stores/{storeId}/webhooks with required events
-		// TODO: Store webhook_id, webhook_url, webhook_secret in settings
+		/* Normalize settings */
+		$settings['api_key']            = isset( $settings['api_key'] ) ? \trim( (string) $settings['api_key'] ) : '';
+		$settings['store_id']           = isset( $settings['store_id'] ) ? \trim( (string) $settings['store_id'] ) : '';
+		$settings['default_product_id'] = isset( $settings['default_product_id'] ) ? \trim( (string) $settings['default_product_id'] ) : '';
+		$settings['webhook_url']        = isset( $settings['webhook_url'] ) ? \trim( (string) $settings['webhook_url'] ) : '';
+		$settings['webhook_secret']     = isset( $settings['webhook_secret'] ) ? \trim( (string) $settings['webhook_secret'] ) : '';
+		$settings['webhook_secrets']    = isset( $settings['webhook_secrets'] ) ? (array) $settings['webhook_secrets'] : array();
+		$settings['return_url']         = isset( $settings['return_url'] ) ? \trim( (string) $settings['return_url'] ) : '';
+		$settings['cancel_url']         = isset( $settings['cancel_url'] ) ? \trim( (string) $settings['cancel_url'] ) : '';
+		$settings['chargeback_ban']     = isset( $settings['chargeback_ban'] ) ? (bool) $settings['chargeback_ban'] : TRUE;
+		$settings['replay_lookback']    = isset( $settings['replay_lookback'] ) ? \max( 300, \min( 86400, (int) $settings['replay_lookback'] ) ) : 3600;
+		$settings['replay_overlap']     = isset( $settings['replay_overlap'] ) ? \max( 60, \min( 1800, (int) $settings['replay_overlap'] ) ) : 300;
+		$settings['replay_max_events']  = isset( $settings['replay_max_events'] ) ? \max( 10, \min( 100, (int) $settings['replay_max_events'] ) ) : 100;
+
+		if ( $settings['api_key'] === '' OR $settings['store_id'] === '' )
+		{
+			throw new \DomainException( 'xpaynowcheckout_missing_api_credentials' );
+		}
+
+		/* Validate API key by fetching products */
+		try
+		{
+			static::apiRequest( 'get', '/stores/' . $settings['store_id'] . '/products?limit=1', $settings );
+		}
+		catch ( \Exception $e )
+		{
+			throw new \DomainException( 'xpaynowcheckout_invalid_api_credentials' );
+		}
+
+		/* Generate webhook URL if not yet set */
+		if ( $settings['webhook_url'] === '' )
+		{
+			$settings['webhook_url'] = (string) \IPS\Http\Url::internal( 'app=xpaynowcheckout&module=webhook&controller=webhook', 'front' );
+		}
+
+		/* Create webhook subscriptions if secrets not yet populated (one per event type) */
+		if ( empty( $settings['webhook_secrets'] ) )
+		{
+			$secrets = array();
+			foreach ( static::REQUIRED_WEBHOOK_EVENTS as $eventName )
+			{
+				try
+				{
+					$result = static::apiRequest( 'post', '/stores/' . $settings['store_id'] . '/webhooks', $settings, array(
+						'url'           => $settings['webhook_url'],
+						'subscribed_to' => $eventName,
+					) );
+
+					if ( isset( $result['secret'] ) AND \is_string( $result['secret'] ) AND $result['secret'] !== '' )
+					{
+						$secrets[] = $result['secret'];
+					}
+				}
+				catch ( \Exception $e )
+				{
+					\IPS\Log::log( $e, 'xpaynowcheckout_webhook_create' );
+				}
+			}
+
+			if ( !empty( $secrets ) )
+			{
+				$settings['webhook_secrets'] = $secrets;
+			}
+		}
 
 		return $settings;
 	}
@@ -270,10 +414,39 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	 */
 	protected function getPaynowCustomer( $transaction, $settings )
 	{
-		// TODO: Check cm_profiles for existing PayNow customer ID
-		// TODO: If not found, POST /v1/stores/{storeId}/customers to create
-		// TODO: Store PayNow customer ID in cm_profiles
-		throw new \RuntimeException( 'PayNow customer resolution not yet implemented.' );
+		$member = $transaction->member;
+		$profiles = $member->cm_profiles;
+		$gatewayId = $this->id;
+
+		/* Check if we already have a stored PayNow customer ID */
+		if ( isset( $profiles[ $gatewayId ] ) AND !empty( $profiles[ $gatewayId ] ) )
+		{
+			return (string) $profiles[ $gatewayId ];
+		}
+
+		/* Create new customer via PayNow API */
+		$customerBody = array(
+			'name'     => (string) $member->name,
+			'metadata' => array(
+				'ips_member_id' => (string) (int) $member->member_id,
+			),
+		);
+
+		$result = static::apiRequest( 'post', '/stores/' . $settings['store_id'] . '/customers', $settings, $customerBody );
+
+		if ( !isset( $result['id'] ) )
+		{
+			throw new \RuntimeException( 'Failed to create PayNow customer.' );
+		}
+
+		$customerId = (string) $result['id'];
+
+		/* Persist to cm_profiles for future lookups */
+		$profiles[ $gatewayId ] = $customerId;
+		$member->cm_profiles = $profiles;
+		$member->save();
+
+		return $customerId;
 	}
 
 	/**

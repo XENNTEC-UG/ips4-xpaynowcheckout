@@ -185,11 +185,94 @@ class _webhook extends \IPS\Dispatcher\Controller
 	 */
 	protected function handleOrderCompleted( array $body, $eventId, $gateway, array $settings )
 	{
-		// TODO: Extract order_id from $body['id'], payment details from $body
-		// TODO: Find matching IPS transaction via $body['checkout']['metadata']['ips_transaction_id']
-		// TODO: Build settlement snapshot (subtotal_amount, tax_amount, total_amount, discount_amount, currency)
-		// TODO: Store snapshot in t_extra
-		// TODO: Approve transaction → triggers markPaid on invoice
+		/* Extract IPS transaction ID from metadata */
+		$transactionId = NULL;
+		if ( isset( $body['metadata']['ips_transaction_id'] ) )
+		{
+			$transactionId = (int) $body['metadata']['ips_transaction_id'];
+		}
+		elseif ( isset( $body['checkout']['metadata']['ips_transaction_id'] ) )
+		{
+			$transactionId = (int) $body['checkout']['metadata']['ips_transaction_id'];
+		}
+		/* Fallback: match by checkout_id stored as gw_id in auth() */
+		elseif ( isset( $body['checkout_id'] ) )
+		{
+			try
+			{
+				$transactionId = (int) \IPS\Db::i()->select( 't_id', 'nexus_transactions', array( 't_gw_id=? AND t_method=?', (string) $body['checkout_id'], $gateway->id ) )->first();
+			}
+			catch ( \UnderflowException $e ) {}
+		}
+
+		if ( !$transactionId )
+		{
+			\IPS\Log::log( 'ON_ORDER_COMPLETED: No ips_transaction_id in metadata. Order: ' . ( isset( $body['id'] ) ? $body['id'] : 'unknown' ), 'xpaynowcheckout_webhook' );
+			return;
+		}
+
+		/* Load transaction */
+		try
+		{
+			$transaction = \IPS\nexus\Transaction::load( $transactionId );
+		}
+		catch ( \OutOfRangeException $e )
+		{
+			\IPS\Log::log( 'ON_ORDER_COMPLETED: Transaction not found: ' . $transactionId, 'xpaynowcheckout_webhook' );
+			return;
+		}
+
+		/* Idempotency — skip if already in a terminal state */
+		if ( $transaction->status === \IPS\nexus\Transaction::STATUS_PAID
+			OR $transaction->status === \IPS\nexus\Transaction::STATUS_PART_REFUNDED
+			OR $transaction->status === \IPS\nexus\Transaction::STATUS_REFUNDED )
+		{
+			return;
+		}
+
+		/* Build and persist settlement snapshot */
+		$snapshot = $this->buildPaynowSnapshot( $body, $transaction );
+		$extra = $transaction->extra;
+		if ( !\is_array( $extra ) )
+		{
+			$extra = array();
+		}
+		$extra['xpaynowcheckout_snapshot'] = $snapshot;
+		$transaction->extra = $extra;
+
+		/* Update gw_id from checkout session ID to PayNow order ID */
+		if ( isset( $body['id'] ) AND \is_string( $body['id'] ) )
+		{
+			$transaction->gw_id = $body['id'];
+		}
+		$transaction->save();
+
+		/* Persist snapshot to invoice status_extra */
+		try
+		{
+			$invoice = $transaction->invoice;
+			$statusExtra = $invoice->status_extra;
+			if ( !\is_array( $statusExtra ) )
+			{
+				$statusExtra = array();
+			}
+			$statusExtra['xpaynowcheckout_snapshot'] = $snapshot;
+			$invoice->status_extra = $statusExtra;
+			$invoice->save();
+		}
+		catch ( \Exception $e )
+		{
+			\IPS\Log::log( $e, 'xpaynowcheckout_snapshot' );
+		}
+
+		/* Approve transaction — triggers markPaid on invoice when fully paid */
+		$maxMind = NULL;
+		if ( \IPS\Settings::i()->maxmind_key )
+		{
+			$maxMind = new \IPS\nexus\Fraud\MaxMind\Request;
+			$maxMind->setTransaction( $transaction );
+		}
+		$transaction->checkFraudRulesAndCapture( $maxMind );
 	}
 
 	/**
@@ -250,6 +333,71 @@ class _webhook extends \IPS\Dispatcher\Controller
 	protected function handleSubscriptionEvent( $eventType, array $body, $eventId, $gateway, array $settings )
 	{
 		// TODO: Handle subscription activation, renewal, cancellation
+	}
+
+	/**
+	 * Build a normalized settlement snapshot from PayNow order data.
+	 *
+	 * @param	array						$body			Order data from webhook body
+	 * @param	\IPS\nexus\Transaction		$transaction	IPS transaction
+	 * @return	array
+	 */
+	protected function buildPaynowSnapshot( array $body, $transaction )
+	{
+		$orderId        = isset( $body['id'] ) ? (string) $body['id'] : '';
+		$prettyId       = isset( $body['pretty_id'] ) ? (string) $body['pretty_id'] : '';
+		$currency       = isset( $body['currency'] ) ? \mb_strtoupper( (string) $body['currency'] ) : '';
+		$subtotalMinor  = isset( $body['subtotal_amount'] ) ? (int) $body['subtotal_amount'] : 0;
+		$taxMinor       = isset( $body['tax_amount'] ) ? (int) $body['tax_amount'] : 0;
+		$discountMinor  = isset( $body['discount_amount'] ) ? (int) $body['discount_amount'] : 0;
+		$totalMinor     = isset( $body['total_amount'] ) ? (int) $body['total_amount'] : 0;
+
+		$subtotalDisplay = isset( $body['subtotal_amount_str'] ) ? (string) $body['subtotal_amount_str'] : '';
+		$taxDisplay      = isset( $body['tax_amount_str'] ) ? (string) $body['tax_amount_str'] : '';
+		$discountDisplay = isset( $body['discount_amount_str'] ) ? (string) $body['discount_amount_str'] : '';
+		$totalDisplay    = isset( $body['total_amount_str'] ) ? (string) $body['total_amount_str'] : '';
+
+		/* Compute IPS invoice total in minor units for comparison */
+		$ipsInvoiceTotal = 0;
+		try
+		{
+			$ipsMoney = $transaction->amount;
+			$decimals = \IPS\nexus\Money::numberOfDecimalsForCurrency( $ipsMoney->currency );
+			$multiplier = new \IPS\Math\Number( '1' . \str_repeat( '0', $decimals ) );
+			$ipsInvoiceTotal = (int) (string) $ipsMoney->amount->multiply( $multiplier );
+		}
+		catch ( \Exception $e ) {}
+
+		$hasMismatch = ( $totalMinor !== $ipsInvoiceTotal );
+		$taxExplained = FALSE;
+		if ( $hasMismatch AND $taxMinor > 0 )
+		{
+			$totalMinusTax = $totalMinor - $taxMinor;
+			$taxExplained = ( $totalMinusTax === $ipsInvoiceTotal );
+		}
+
+		return array(
+			'captured_at'                    => \time(),
+			'captured_at_iso'                => \gmdate( 'Y-m-d H:i:s' ) . ' UTC',
+			'paynow_order_id'                => $orderId,
+			'paynow_pretty_id'               => $prettyId,
+			'currency'                       => $currency,
+			'subtotal_minor'                 => $subtotalMinor,
+			'subtotal_display'               => $subtotalDisplay,
+			'tax_minor'                      => $taxMinor,
+			'tax_display'                    => $taxDisplay,
+			'discount_minor'                 => $discountMinor,
+			'discount_display'               => $discountDisplay,
+			'total_minor'                    => $totalMinor,
+			'total_display'                  => $totalDisplay,
+			'billing_name'                   => isset( $body['billing_name'] ) ? (string) $body['billing_name'] : '',
+			'billing_email'                  => isset( $body['billing_email'] ) ? (string) $body['billing_email'] : '',
+			'billing_country'                => isset( $body['billing_country'] ) ? (string) $body['billing_country'] : '',
+			'completed_at'                   => isset( $body['completed_at'] ) ? (string) $body['completed_at'] : '',
+			'ips_invoice_total'              => $ipsInvoiceTotal,
+			'has_total_mismatch'             => $hasMismatch,
+			'total_difference_tax_explained' => $taxExplained,
+		);
 	}
 
 	/**

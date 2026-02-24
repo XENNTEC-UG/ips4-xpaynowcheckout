@@ -1,6 +1,6 @@
 # X PayNow Checkout — Architecture Document
 
-> **Version**: 1.0.1
+> **Version**: 1.0.2
 > **App directory**: `xpaynowcheckout`
 > **Task prefix**: `pnc`
 > **DB table prefix**: `pnc_`
@@ -466,13 +466,13 @@ Legend: DONE = implemented and verified, TODO = not yet started, STUB = scaffold
 - [x] Language file: 100+ keys
 - [x] App installed and enabled in dev environment
 
-### Phase 1 — Core Checkout (TODO — next)
-- [ ] `auth()` — Create PayNow checkout session, redirect to hosted checkout URL
-- [ ] `testSettings()` — Validate API key, auto-create multi-secret webhook subscriptions
-- [ ] `OnOrderCompleted` webhook handler — Approve transaction, build settlement snapshot
-- [ ] Customer resolution — Create/lookup PayNow customer (platform-identity model, `cm_profiles`)
-- [ ] Settlement snapshot persistence in `t_extra` and `i_status_extra`
-- [ ] Gateway settings form — webhook display (auto-created URLs/secrets)
+### Phase 1 — Core Checkout (DONE in v1.0.2)
+- [x] `auth()` — Create PayNow checkout session, redirect to hosted checkout URL
+- [x] `testSettings()` — Validate API key, auto-create multi-secret webhook subscriptions
+- [x] `OnOrderCompleted` webhook handler — Approve transaction, build settlement snapshot
+- [x] Customer resolution — Create/lookup PayNow customer (platform-identity model, `cm_profiles`)
+- [x] Settlement snapshot persistence in `t_extra` and `i_status_extra`
+- [x] Gateway settings form — `default_product_id` field, `checkValidity()` enforcement
 
 ### Phase 2 — Refund & Chargeback (TODO)
 - [ ] `refund()` — Call PayNow order-level refund API

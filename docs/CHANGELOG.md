@@ -1,5 +1,41 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-24 - v1.0.2: Phase 1 — Core Checkout Flow
+
+### Core Checkout (`auth()`)
+- Implemented hosted checkout session creation via `POST /v1/stores/{storeId}/checkouts`.
+- Builds checkout payload with customer ID, product line, metadata (ips_transaction_id, ips_invoice_id, ips_member_id, gateway_id).
+- Stores PayNow checkout session ID as `gw_id` for webhook correlation.
+- Redirects customer to PayNow hosted checkout URL.
+- Supports custom return/cancel URLs from gateway settings with IPS transaction URL fallback.
+
+### Gateway Validation (`testSettings()`)
+- Validates API credentials by fetching products from PayNow API.
+- Auto-generates webhook URL from IPS internal routing.
+- Creates multi-secret webhook subscriptions (one POST per event type in REQUIRED_WEBHOOK_EVENTS).
+- Stores all signing secrets in `webhook_secrets` array for signature verification.
+- Normalizes and bounds all settings (replay lookback/overlap/max events).
+
+### Customer Resolution (`getPaynowCustomer()`)
+- Creates PayNow customer via `POST /v1/stores/{storeId}/customers` with IPS member name + metadata.
+- Caches PayNow customer ID in `cm_profiles[gateway_id]` for future lookups.
+- Skips API call on subsequent checkouts when cached ID exists.
+
+### Webhook Handler (`handleOrderCompleted`)
+- Resolves IPS transaction from webhook metadata with three-level fallback: direct metadata → nested checkout metadata → gw_id DB lookup by checkout_id.
+- Idempotency: skips if transaction already in paid/refunded state.
+- Builds normalized settlement snapshot with subtotal/tax/discount/total (minor + display), billing info, IPS-vs-PayNow total comparison with mismatch detection and tax-explains-difference flag.
+- Persists snapshot to both `t_extra` and `i_status_extra`.
+- Updates `gw_id` from checkout session ID to PayNow order ID.
+- Approves transaction via `checkFraudRulesAndCapture()` with optional MaxMind integration.
+
+### Gateway Settings
+- Added `default_product_id` required field (PayNow product ID for checkout line items).
+- `checkValidity()` now blocks transactions when required settings are missing.
+
+### Language
+- Added 7 new language keys for default product ID, error messages.
+
 ## 2026-02-24 - v1.0.1: Audit Corrections + Parity Fixes
 
 ### Critical Fixes

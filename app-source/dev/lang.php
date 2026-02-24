@@ -12,6 +12,8 @@ $lang = array(
 'xpaynowcheckout_api_key_desc'	=> 'API Key from your PayNow dashboard. Used for store management API calls.',
 'xpaynowcheckout_store_id'	=> 'Store ID',
 'xpaynowcheckout_store_id_desc'	=> 'Your PayNow store identifier (Flake ID format).',
+'xpaynowcheckout_default_product_id'	=> 'Default Product ID',
+'xpaynowcheckout_default_product_id_desc'	=> 'A PayNow product ID used for checkout line items. Create a generic product in your PayNow dashboard and paste its ID here.',
 
 /* ACP Settings - Webhook */
 'xpaynowcheckout_webhook'	=> 'Webhook',
@@ -114,5 +116,12 @@ $lang = array(
 'xpaynowcheckout_banned_chargeback'	=> 'Banned (chargeback)',
 'xpaynowcheckout_not_banned'	=> 'Not banned',
 'xpaynowcheckout_view_integrity'	=> 'View integrity panel',
+
+/* Error messages */
+'xpaynowcheckout_invalid_settings'	=> 'PayNow Checkout gateway settings are invalid.',
+'xpaynowcheckout_missing_required_settings'	=> 'PayNow Checkout requires an API key, store ID, and default product ID.',
+'xpaynowcheckout_missing_api_credentials'	=> 'API key and store ID are required.',
+'xpaynowcheckout_invalid_api_credentials'	=> 'Could not validate PayNow API credentials. Please check your API key and store ID.',
+'xpaynowcheckout_payment_cancelled'	=> 'Payment was cancelled.',
 
 );

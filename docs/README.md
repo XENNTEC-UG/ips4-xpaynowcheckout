@@ -2,17 +2,22 @@
 
 ## Current Status
 
-`xpaynowcheckout` v1.0.1 — scaffold + audit corrections applied. Installed and enabled in dev environment. Next: Phase 1 (core checkout flow).
+`xpaynowcheckout` v1.0.2 — Phase 1 (core checkout flow) complete. Next: Phase 2 (refund & chargeback).
 
-**Done** (v1.0.0–v1.0.1):
+**Done** (v1.0.0–v1.0.2):
 - App scaffold with all config files, Application.php, schema.json.
 - Gateway class with settings form. Webhook controller with base64 HMAC-SHA256 signature verification, multi-secret iteration, forensic logging.
 - 6 hooks: gateway registration, coupon naming, invoice view, settlement themes (x2), member profile.
 - ACP modules (integrity + forensics), tasks, extensions, templates — all stubbed with TODO markers.
 - Language file with 100+ keys. DB table `pnc_webhook_forensics`.
+- `auth()` — hosted checkout session creation + redirect.
+- `testSettings()` — API validation + multi-secret webhook subscription creation.
+- `getPaynowCustomer()` — platform-identity customer creation + cm_profiles caching.
+- `handleOrderCompleted()` — transaction approval + settlement snapshot + mismatch detection.
+- `checkValidity()` — settings enforcement.
 
-**Next** (Phase 1 — Core Checkout):
-- `auth()`, `testSettings()`, `OnOrderCompleted` handler, customer resolution, settlement snapshots.
+**Next** (Phase 2 — Refund & Chargeback):
+- `refund()`, `OnRefund` handler, `OnChargeback` + `OnChargebackClosed` handlers, chargeback ban logic.
 
 ## Source Paths
 
