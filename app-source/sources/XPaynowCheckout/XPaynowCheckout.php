@@ -410,6 +410,7 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	protected function buildPaynowLineItems( \IPS\nexus\Transaction $transaction )
 	{
 		$lineItems = array();
+		$itemIndex = 0;
 
 		$invoiceLabel = \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_payment_invoice', FALSE, array( 'sprintf' => array( $transaction->invoice->id ) ) );
 		\IPS\Member::loggedIn()->language()->parseOutputForDisplay( $invoiceLabel );
@@ -447,9 +448,13 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 				$itemDescription = \str_pad( $itemDescription, 25, '.' );
 			}
 
+			/* Unique slug per checkout to avoid PayNow "slug already in use" collisions */
+			$itemSlug = 'ips-t' . $transaction->id . '-i' . $itemIndex;
+
 			$lineItems[] = array(
 				'inline_product' => array(
 					'name'                    => $itemName,
+					'slug'                    => $itemSlug,
 					'description'             => $itemDescription,
 					'price'                   => $unitAmount,
 					'allow_one_time_purchase' => TRUE,
@@ -457,6 +462,8 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 				'quantity'     => $quantity,
 				'subscription' => FALSE,
 			);
+
+			$itemIndex++;
 		}
 
 		/* Fallback: no items resolved — single summary line with total amount */
@@ -473,6 +480,7 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 			$lineItems[] = array(
 				'inline_product' => array(
 					'name'                    => $invoiceLabel,
+					'slug'                    => 'ips-t' . $transaction->id . '-fallback',
 					'description'             => $fallbackDescription,
 					'price'                   => $fallbackAmount,
 					'allow_one_time_purchase' => TRUE,

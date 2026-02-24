@@ -1,5 +1,15 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-24 - v1.0.7: Fix multi-item checkout slug collision
+
+### Bug Fix
+- Fixed PayNow API "product slug is already in use" error when checking out with multiple items
+  or when re-purchasing the same products across different checkout sessions.
+- Added unique `slug` field (`ips-t{transactionId}-i{itemIndex}`) to each `inline_product` in
+  `buildPaynowLineItems()`, preventing auto-generated slug collisions from product names.
+- Multi-item checkout verified: 2x Starter 7D + 1x Premium 30D displays correctly on PayNow
+  hosted checkout with individual line items, quantities, and prices.
+
 ## 2026-02-24 - v1.0.6: Dynamic inline product line items
 
 ### Feature

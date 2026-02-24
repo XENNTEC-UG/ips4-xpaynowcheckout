@@ -6,7 +6,7 @@
 
 | Package version | Long version | Source |
 | --- | --- | --- |
-| `1.0.6` | `10006` | `app-source/data/versions.json` |
+| `1.0.7` | `10007` | `app-source/data/versions.json` |
 
 ## Product Positioning
 
@@ -48,7 +48,7 @@
 
 ### Phase 1 — Core Checkout (DONE in v1.0.2, enhanced v1.0.6)
 - `auth()` — Hosted checkout session creation, redirect to PayNow checkout URL, gw_id correlation.
-- **Dynamic inline products** (v1.0.6) — `buildPaynowLineItems()` iterates invoice items, creates `inline_product` per line with actual IPS product name and price. Matches Stripe's `product_data` pattern (stateless, no mapping table).
+- **Dynamic inline products** (v1.0.6, fix v1.0.7) — `buildPaynowLineItems()` iterates invoice items, creates `inline_product` per line with actual IPS product name and price. Unique `slug` per transaction prevents PayNow slug collisions. Matches Stripe's `product_data` pattern (stateless, no mapping table). Multi-item checkout verified.
 - `testSettings()` — API key validation, auto-create multi-secret webhook subscriptions, webhook URL generation.
 - `OnOrderCompleted` webhook handler — Transaction resolution (3-level fallback), settlement snapshot, `checkFraudRulesAndCapture()`.
 - Customer resolution — Create/lookup PayNow customer via `cm_profiles` caching.
