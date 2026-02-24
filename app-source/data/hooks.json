@@ -18,5 +18,9 @@
     "invoiceViewHook": {
         "type": "C",
         "class": "\\IPS\\nexus\\modules\\front\\clients\\invoices"
+    },
+    "couponNameHook": {
+        "type": "C",
+        "class": "\\IPS\\nexus\\Coupon"
     }
 }

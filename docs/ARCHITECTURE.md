@@ -1,6 +1,6 @@
 # X PayNow Checkout — Architecture Document
 
-> **Version**: 1.0.0 (skeleton)
+> **Version**: 1.0.1
 > **App directory**: `xpaynowcheckout`
 > **Task prefix**: `pnc`
 > **DB table prefix**: `pnc_`
@@ -136,22 +136,28 @@ Response:
 
 ### 2.7 Webhook System
 
-**Signature verification**:
+**Signature verification** (base64 HMAC-SHA256):
 1. Extract `PayNow-Signature` and `PayNow-Timestamp` headers
 2. `PayNow-Timestamp` is Unix milliseconds
 3. Build signed payload: `{timestamp}.{raw_body}`
-4. HMAC-SHA256 with webhook secret
+4. Compute: `base64_encode( hash_hmac( 'sha256', $signedPayload, $secret, TRUE ) )`
 5. Constant-time compare against `PayNow-Signature`
 6. Reject if timestamp older than 5 minutes (300 seconds)
 
-**Event types we subscribe to** (REQUIRED_WEBHOOK_EVENTS):
-- `OnOrderCompleted` — approve IPS transaction
-- `OnRefund` — record refund on IPS transaction
-- `OnChargeback` — mark dispute, optionally ban member
-- `OnChargebackClosed` — log resolution
-- `OnSubscriptionActivated` — (future) subscription support
-- `OnSubscriptionRenewed` — (future) subscription support
-- `OnSubscriptionCanceled` — (future) subscription support
+**Multi-secret architecture**: PayNow creates one webhook subscription per event type, each with its own signing `secret`. The webhook handler must try all stored secrets for verification (iterate `webhook_secrets` array).
+
+**Dual event naming**: Management API `subscribed_to` uses PascalCase (`OnOrderCompleted`). Incoming webhook `event_type` uses SCREAMING_SNAKE_CASE (`ON_ORDER_COMPLETED`). `REQUIRED_WEBHOOK_EVENTS` keeps PascalCase for API calls; `processEvent()` switch uses uppercase for incoming events.
+
+**Webhook payload structure**: Top-level keys are `event_type` (string), `event_id` (FlakeId), and `body` (object with event-specific data).
+
+**Event types we subscribe to** (REQUIRED_WEBHOOK_EVENTS — PascalCase for API):
+- `OnOrderCompleted` → incoming: `ON_ORDER_COMPLETED` — approve IPS transaction
+- `OnRefund` → incoming: `ON_REFUND` — record refund on IPS transaction
+- `OnChargeback` → incoming: `ON_CHARGEBACK` — mark dispute, optionally ban member
+- `OnChargebackClosed` → incoming: `ON_CHARGEBACK_CLOSED` — log resolution
+- `OnSubscriptionActivated` → incoming: `ON_SUBSCRIPTION_ACTIVATED` — (future)
+- `OnSubscriptionRenewed` → incoming: `ON_SUBSCRIPTION_RENEWED` — (future)
+- `OnSubscriptionCanceled` → incoming: `ON_SUBSCRIPTION_CANCELED` — (future)
 
 **Retry policy**: PayNow retries with exponential backoff when response is non-2xx.
 
@@ -162,8 +168,8 @@ Response:
 
 ### 2.8 Customer Model
 
-Customers in PayNow are identified by FlakeId and can be looked up by Steam ID, Minecraft UUID, Xbox XUID, or name. For our IPS integration:
-- Create customer via `POST /stores/{storeId}/customers` with `name` = IPS member name
+**Platform-identity model**: PayNow customers are identified by gaming platform IDs (Steam ID, Minecraft UUID, Xbox XUID) or name — NOT by email. For our IPS integration:
+- Create customer via `POST /stores/{storeId}/customers` with `name` = IPS member name + metadata (`ips_member_id`)
 - Store PayNow customer FlakeId in `cm_profiles[gateway_id]` on the IPS member
 - Lookup via `GET /stores/{storeId}/customers/lookup?id={paynow_customer_id}`
 
@@ -202,11 +208,12 @@ The actual available methods depend on the store's PayNow configuration.
 
 ```
 app-source/
+├── Application.php             # App class (required by IPS4)
 ├── data/
 │   ├── application.json        # App metadata, version
 │   ├── versions.json           # Version history
 │   ├── modules.json            # admin/monitoring, front/webhook
-│   ├── hooks.json              # 5 hooks (gateway, theme x2, member tab, invoice)
+│   ├── hooks.json              # 6 hooks (gateway, theme x2, member tab, invoice, coupon)
 │   ├── extensions.json         # AdminNotifications, MemberACPProfileBlocks
 │   ├── tasks.json              # pncWebhookReplay (15m), pncIntegrityMonitor (5m)
 │   ├── schema.json             # pnc_webhook_forensics table
@@ -222,6 +229,7 @@ app-source/
 ├── hooks/
 │   ├── code_GatewayModel.php   # Register gateway in Gateway::gatewayClasses()
 │   ├── code_memberProfileTab.php  # ACP member profile integration
+│   ├── couponNameHook.php      # Consistent "Coupon: CODE" display naming
 │   ├── invoiceViewHook.php     # Inject settlement data into invoice view
 │   ├── theme_pnc_clients_settle.php  # Settlement card (front-end)
 │   └── theme_pnc_print_settle.php    # Settlement card (print)
@@ -401,7 +409,8 @@ All settings stored on `nexus_paymethods.m_settings` (JSON):
 | `api_key` | string | Yes | PayNow API key |
 | `store_id` | string | Yes | PayNow store FlakeId |
 | `webhook_url` | string | Auto | Webhook endpoint URL |
-| `webhook_secret` | string | Auto | HMAC signing secret |
+| `webhook_secret` | string | Auto | Legacy single HMAC signing secret |
+| `webhook_secrets` | array | Auto | Array of signing secrets (one per event subscription) |
 | `webhook_id` | string | Auto | PayNow webhook subscription ID |
 | `return_url` | string | No | Custom success redirect |
 | `cancel_url` | string | No | Custom cancel redirect |
@@ -419,6 +428,7 @@ All settings stored on `nexus_paymethods.m_settings` (JSON):
 | `theme_pnc_print_settle` | S | `\IPS\Theme\class_nexus_global_invoices` | Settlement card in print invoice |
 | `code_memberProfileTab` | C | `\IPS\core\extensions\core\MemberACPProfileTabs\Main` | ACP member profile block |
 | `invoiceViewHook` | C | `\IPS\nexus\modules\front\clients\invoices` | Inject settlement data into invoice controller |
+| `couponNameHook` | C | `\IPS\nexus\Coupon` | Consistent "Coupon: CODE" display naming |
 
 ## 9. Tasks
 
@@ -434,41 +444,61 @@ All settings stored on `nexus_paymethods.m_settings` (JSON):
 | `PaymentIntegrity` | AdminNotifications | Raise ACP alerts for webhook errors, stale replay, mismatches |
 | `PaynowPaymentSummary` | MemberACPProfileBlocks | Show chargeback/refund summary on member profile |
 
-## 11. Implementation Priorities
+## 11. Implementation Status
 
-### Phase 1 — Core Checkout (MVP)
-1. `auth()` — Create checkout session, redirect to PayNow
-2. `webhook.php` — Handle `OnOrderCompleted` → approve transaction
-3. `testSettings()` — Validate API key, auto-create webhook
-4. `code_GatewayModel` hook — Register gateway
-5. Gateway settings form — API key, store ID, webhook display
-6. Settlement snapshot — Build and store in t_extra
+Legend: DONE = implemented and verified, TODO = not yet started, STUB = scaffolded with TODO markers
 
-### Phase 2 — Refund & Chargeback
-7. `refund()` — Call PayNow refund API
-8. `OnRefund` webhook handler
-9. `OnChargeback` + `OnChargebackClosed` handlers
-10. Chargeback ban logic
-11. Member profile block (chargeback/refund counts)
+### Scaffold (DONE in v1.0.0 + v1.0.1)
+- [x] App scaffold: all IPS4 config files, Application.php, schema.json
+- [x] Gateway class with settings form (API key, store ID, webhook config, chargeback toggle, replay settings)
+- [x] Webhook controller: HMAC-SHA256 signature verification (base64), multi-secret iteration, forensic logging with event_id
+- [x] Webhook payload parsing: `event_type` / `event_id` / `body` structure
+- [x] Event dispatch: SCREAMING_SNAKE_CASE switch matching incoming webhooks
+- [x] `code_GatewayModel` hook — register gateway
+- [x] `couponNameHook` — consistent coupon display naming
+- [x] `invoiceViewHook` — hooks `view()` (correct method)
+- [x] Theme hooks: `theme_pnc_clients_settle`, `theme_pnc_print_settle` (STUB templates)
+- [x] `code_memberProfileTab` hook (STUB)
+- [x] ACP modules: integrity panel + forensics viewer (STUB controllers)
+- [x] Tasks: `pncWebhookReplay` + `pncIntegrityMonitor` (STUB logic)
+- [x] Extensions: `PaymentIntegrity` + `PaynowPaymentSummary` (STUB)
+- [x] DB table: `pnc_webhook_forensics` with indexes
+- [x] Language file: 100+ keys
+- [x] App installed and enabled in dev environment
 
-### Phase 3 — Monitoring & Resilience
-12. Integrity panel — Webhook health, replay status, mismatch table
-13. Forensics viewer — Table\Db with filters
-14. `pncWebhookReplay` task — Fetch history, resend failed
-15. `pncIntegrityMonitor` task — Alert conditions, forensics prune
-16. AdminNotification alerts
-17. Acknowledge errors button
+### Phase 1 — Core Checkout (TODO — next)
+- [ ] `auth()` — Create PayNow checkout session, redirect to hosted checkout URL
+- [ ] `testSettings()` — Validate API key, auto-create multi-secret webhook subscriptions
+- [ ] `OnOrderCompleted` webhook handler — Approve transaction, build settlement snapshot
+- [ ] Customer resolution — Create/lookup PayNow customer (platform-identity model, `cm_profiles`)
+- [ ] Settlement snapshot persistence in `t_extra` and `i_status_extra`
+- [ ] Gateway settings form — webhook display (auto-created URLs/secrets)
 
-### Phase 4 — Polish
-18. Invoice view settlement card (theme hooks)
-19. Print invoice settlement card
-20. IPS coupon forwarding (create PayNow coupon for IPS discounts)
-21. `gatewayUrl()` — Link to PayNow dashboard
-22. `checkValidity()` — Currency validation
+### Phase 2 — Refund & Chargeback (TODO)
+- [ ] `refund()` — Call PayNow order-level refund API
+- [ ] `OnRefund` webhook handler
+- [ ] `OnChargeback` + `OnChargebackClosed` handlers
+- [ ] Chargeback ban logic
+- [ ] Member profile block (chargeback/refund counts)
+
+### Phase 3 — Monitoring & Resilience (TODO)
+- [ ] Integrity panel — Webhook health cards, mismatch table, replay status
+- [ ] Forensics viewer — Table\Db with full filter/delete
+- [ ] `pncWebhookReplay` task — Fetch history from PayNow API, resend failed
+- [ ] `pncIntegrityMonitor` task — Alert conditions, forensics prune
+- [ ] AdminNotification alert conditions
+- [ ] Error acknowledge button on integrity panel
+
+### Phase 4 — Polish (TODO)
+- [ ] Invoice view settlement card (template rendering with full data)
+- [ ] Print invoice settlement card
+- [ ] IPS coupon forwarding (create PayNow coupon for IPS discounts)
+- [ ] `gatewayUrl()` — Link to PayNow dashboard
+- [ ] `checkValidity()` — Currency validation
 
 ### Phase 5 — Subscription Support (Future)
-23. `OnSubscriptionActivated` / `OnSubscriptionRenewed` / `OnSubscriptionCanceled` handlers
-24. Recurring billing support in `auth()` (line-level `subscription: true`)
+- [ ] `OnSubscriptionActivated` / `OnSubscriptionRenewed` / `OnSubscriptionCanceled` handlers
+- [ ] Recurring billing support in `auth()` (line-level `subscription: true`)
 
 ## 12. Key Differences from Stripe/Polar
 
@@ -477,7 +507,7 @@ All settings stored on `nexus_paymethods.m_settings` (JSON):
 | Auth header | `Bearer {secret}` | `Bearer {token}` | `apikey {key}` |
 | Checkout create | `POST /checkout/sessions` | `POST /v1/checkouts` | `POST /v1/stores/{id}/checkouts` |
 | Customer ID | Stripe customer ID | Polar customer ID | PayNow FlakeId |
-| Webhook sig | Stripe-Signature (t=...v1=...) | Standard Webhooks (base64 HMAC) | `PayNow-Signature` (hex HMAC) + `PayNow-Timestamp` (ms) |
+| Webhook sig | Stripe-Signature (t=...v1=...) | Standard Webhooks (base64 HMAC) | `PayNow-Signature` (base64 HMAC) + `PayNow-Timestamp` (ms) |
 | Amounts | Minor units (cents) | Minor units (cents) | Minor units (cents) |
 | Partial refund | Yes | Yes | No (order-level only) |
 | Subscriptions | Stripe Billing | Polar subscriptions | PayNow subscriptions |
@@ -515,3 +545,63 @@ PayNow error response format:
 - CSRF: `$csrfProtected = TRUE` on ACP controllers, `csrfCheck()` on actions
 - Templates: `{$var}` auto-escaped, `{$var|raw}` for trusted HTML only
 - Settings stored on `nexus_paymethods` gateway record, not `core_sys_conf_settings`
+
+## 15. Audit Log (2026-02-24)
+
+Audit performed against PayNow.gg API docs and sibling gateway implementations (xstripecheckout, xpolarcheckout). All corrections applied in v1.0.1.
+
+### 15.1 API Reference URLs Verified
+
+- https://docs.paynow.gg/getting-started/authentication
+- https://docs.paynow.gg/getting-started/error-response
+- https://docs.paynow.gg/management/management-api/checkout
+- https://docs.paynow.gg/management/management-api/orders
+- https://docs.paynow.gg/management/management-api/payments
+- https://docs.paynow.gg/management/management-api/customers
+- https://docs.paynow.gg/management/management-api/coupons
+- https://docs.paynow.gg/management/management-api/subscriptions
+- https://docs.paynow.gg/management/management-api/webhooks
+- https://docs.paynow.gg/webhooks/webhooks-introduction
+- https://docs.paynow.gg/webhooks/validating-incoming-webhooks
+- https://docs.paynow.gg/webhooks/preventing-replay-attacks
+- https://docs.paynow.gg/webhooks/integration-implementation-examples
+- https://docs.paynow.gg/webhooks/webhook-events/webhooks
+
+### 15.2 Corrections Applied in v1.0.1 (all DONE)
+
+1. **Webhook payload fields** (CRITICAL): Skeleton used `$payload['event']`/`$payload['id']`. Fixed to `event_type`/`event_id`/`body` per actual PayNow structure.
+2. **Event name casing** (CRITICAL): Management API uses PascalCase; incoming webhooks use SCREAMING_SNAKE_CASE. `processEvent()` switch now uses uppercase.
+3. **Signature encoding** (CRITICAL): Changed from hex to `base64_encode( hash_hmac( 'sha256', ..., $secret, TRUE ) )`.
+4. **Invoice hook method** (MEDIUM): Changed from `manage()` to `view()` to match sibling pattern.
+5. **couponNameHook** (MEDIUM): Added hook on `\IPS\nexus\Coupon`. Registered in `hooks.json`.
+6. **Forensics event_id** (LOW): `logForensic()` now accepts and persists `$eventId`. All call sites updated.
+7. **Application.php** (INSTALL): Was missing from scaffold — required by IPS4 for every app.
+8. **schema.json table name** (INSTALL): Table definitions require top-level `"name"` key matching table name.
+
+### 15.3 Finding Rejected (False Positive)
+
+- "Hook catch blocks don't log with `\IPS\Log::log()`" — Established IPS4 hook pattern is silent catch with fallback to parent. Both xstripecheckout and xpolarcheckout use this pattern. Not a standards violation.
+
+### 15.4 Additional Discoveries
+
+1. **Multi-secret webhook architecture** (HIGH): PayNow creates one webhook subscription per event type, each with its own signing secret. `testSettings()` must create 7 subscriptions. Webhook handler iterates `webhook_secrets` array. (Integrated into sections 2.7 and 7.)
+2. **Platform-identity customer model** (MEDIUM): PayNow customers use gaming platform IDs, not email. (Integrated into section 2.8.)
+3. **Auth header prefix** (COSMETIC): `apikey` vs `APIKey` — case-insensitive, no change needed.
+
+### 15.5 Stripe-Parity Requirements (TODO)
+
+To match xstripecheckout behavior across all gateways:
+
+| Area | Requirement | Status |
+|------|-------------|--------|
+| Invoice view | Hook on `view()` rendering path | DONE |
+| Invoice view | Two-column layout (Order Details + Charge Summary) | TODO |
+| Invoice view | Payment & References block | TODO |
+| Settlement | Subtotal/discount/tax/total display | TODO |
+| Settlement | Mismatch warning + tax-explains-difference | TODO |
+| Settlement | Provider refs + invoice/receipt links | TODO |
+| Print invoice | Mirror front-end settlement data | TODO |
+| Monitoring | Integrity cards, mismatch table, replay status | TODO |
+| Monitoring | Replay controls with dry-run | TODO |
+| Hooks | `couponNameHook` | DONE |
+| Hooks | `code_loadJs` (optional, only if PayNow JS SDK used) | N/A |

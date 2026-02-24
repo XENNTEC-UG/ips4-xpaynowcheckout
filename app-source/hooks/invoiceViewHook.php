@@ -13,17 +13,17 @@ class xpaynowcheckout_hook_invoiceViewHook extends _HOOK_CLASS_
 	 *
 	 * @return	void
 	 */
-	public function manage()
+	public function view()
 	{
 		try
 		{
 			// TODO: If current invoice has a PayNow transaction, inject settlement snapshot data
 			// into the output for the theme hook to render
-			return parent::manage();
+			return parent::view();
 		}
 		catch ( \Throwable $e )
 		{
-			return parent::manage();
+			return parent::view();
 		}
 	}
 }

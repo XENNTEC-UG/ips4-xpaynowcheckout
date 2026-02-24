@@ -1,5 +1,6 @@
 {
 	"pnc_webhook_forensics": {
+		"name": "pnc_webhook_forensics",
 		"columns": {
 			"forensic_id": {
 				"allow_null": false,

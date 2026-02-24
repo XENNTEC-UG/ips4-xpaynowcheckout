@@ -6,7 +6,7 @@
 
 | Package version | Long version | Source |
 | --- | --- | --- |
-| `1.0.0` | `10000` | `app-source/data/versions.json` |
+| `1.0.1` | `10001` | `app-source/data/versions.json` |
 
 ## Product Positioning
 
@@ -29,24 +29,28 @@
 
 ## Capability Status
 
-### Skeleton (Implemented)
-- Gateway app scaffold and all IPS4 config files.
+### Scaffold + Audit Fixes (v1.0.0–v1.0.1 — DONE)
+- Gateway app scaffold, Application.php, and all IPS4 config files.
 - Gateway class with settings form (API key, store ID, webhook config, chargeback toggle, replay settings).
-- Webhook controller with HMAC-SHA256 signature verification and forensic logging.
+- Webhook controller with base64 HMAC-SHA256 signature verification, multi-secret iteration, and forensic logging (with event_id).
+- Webhook payload parsing: `event_type` / `event_id` / `body` structure (verified against PayNow docs).
+- Event dispatch: SCREAMING_SNAKE_CASE switch matching incoming webhooks; PascalCase for management API.
+- 6 hooks: gateway registration, coupon naming, invoice view (on `view()`), settlement themes (x2), member profile.
 - Integrity panel ACP module with manage(), replay(), ackErrors() action stubs.
 - Forensics viewer ACP module with Table\Db, filters, and per-row delete.
 - Replay task skeleton with configurable lookback, overlap, and max events.
 - Integrity monitor task with alert condition checking and 90-day forensics pruning.
-- AdminNotification extension for payment integrity alerts.
-- MemberACPProfileBlocks extension for payment summary on member profiles.
+- AdminNotification extension + MemberACPProfileBlocks extension (stubs).
 - Template stubs for settlement cards (front-end + print), integrity panel, and member summary.
 - Language file with 100+ keys covering all features.
+- DB table `pnc_webhook_forensics` with indexes.
+- App installed and enabled in dev environment.
 
-### Phase 1 — Core Checkout (TODO)
+### Phase 1 — Core Checkout (TODO — next)
 - `auth()` — Create PayNow checkout session and redirect.
-- `testSettings()` — Validate API key, auto-create webhook subscription.
+- `testSettings()` — Validate API key, auto-create multi-secret webhook subscriptions.
 - `OnOrderCompleted` webhook handler — Approve transaction, build settlement snapshot.
-- Customer resolution — Create/lookup PayNow customer via `cm_profiles`.
+- Customer resolution — Create/lookup PayNow customer (platform-identity model, `cm_profiles`).
 - Settlement snapshot persistence in `t_extra` and `i_status_extra`.
 
 ### Phase 2 — Refund & Chargeback (TODO)
@@ -73,6 +77,28 @@
 - `OnSubscriptionActivated` / `OnSubscriptionRenewed` / `OnSubscriptionCanceled` handlers.
 - Recurring billing support in `auth()` with line-level `subscription: true`.
 
+## Audit-Backed Parity Backlog (2026-02-24)
+
+Full audit log: `docs/ARCHITECTURE.md` section 15.
+
+### API correctness gaps (all DONE in v1.0.1)
+- ~~Normalize incoming webhook payload handling~~ — DONE (event_type/event_id/body)
+- ~~Normalize incoming webhook event names~~ — DONE (SCREAMING_SNAKE_CASE dispatch)
+- ~~Align webhook signature verification~~ — DONE (base64 HMAC-SHA256)
+- ~~Ensure forensics logging persists event_id~~ — DONE
+
+### Stripe-equivalent UX/features to carry into PayNow
+- ~~Invoice hook parity: run on invoice `view()` path~~ — DONE
+- Invoice hook parity: add two-column layout with provider settlement summary — TODO
+- Invoice hook parity: append Payment & References section — TODO
+- Settlement parity: subtotal, discount, net subtotal, tax, and total formatting — TODO
+- Settlement parity: mismatch and tax-difference explanation states — TODO
+- Settlement parity: provider IDs and customer-facing invoice/receipt links — TODO
+- Print parity: implement print settlement view — TODO
+- Monitoring parity: integrity cards/tables with endpoint drift visibility — TODO
+- Monitoring parity: replay controls including dry-run behavior — TODO
+- ~~Hook parity: add `couponNameHook`~~ — DONE
+
 ## Capability Highlights
 
 ### Payment flow and gateway behavior
@@ -83,7 +109,7 @@
 - Order-level refunds only (`SUPPORTS_PARTIAL_REFUNDS = FALSE`).
 
 ### Webhook reliability and safety
-- HMAC-SHA256 signature verification with `PayNow-Signature` + `PayNow-Timestamp` headers.
+- Base64 HMAC-SHA256 signature verification with `PayNow-Signature` + `PayNow-Timestamp` headers, multi-secret iteration.
 - Timestamp freshness enforcement (300-second tolerance, millisecond timestamps from PayNow).
 - Event-id-based idempotency — duplicate deliveries return 200 without state mutation.
 - Validation failures persisted to `pnc_webhook_forensics` for ACP security audit with 90-day auto-cleanup.

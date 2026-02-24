@@ -1,5 +1,39 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-24 - v1.0.1: Audit Corrections + Parity Fixes
+
+### Critical Fixes
+- Fixed webhook signature verification: changed from hex to base64 HMAC-SHA256 output to match PayNow's documented format.
+- Fixed webhook payload parsing: changed from `$payload['event']`/`$payload['id']` to correct `event_type`/`event_id`/`body` structure.
+- Fixed event name casing in processEvent() switch: PascalCase → SCREAMING_SNAKE_CASE (`ON_ORDER_COMPLETED`, `ON_REFUND`, etc.).
+
+### Medium Fixes
+- Fixed invoice hook: changed from `manage()` to `view()` to match xstripecheckout/xpolarcheckout sibling pattern.
+- Added `couponNameHook` on `\IPS\nexus\Coupon` for consistent "Coupon: CODE" display naming. Registered in `hooks.json`.
+
+### Low Fixes
+- Fixed forensics logging: `logForensic()` now accepts and persists `event_id` parameter. All call sites pass event ID when available.
+
+### Webhook Architecture
+- Added multi-secret support: PayNow uses one webhook subscription per event, each with its own signing secret. Webhook handler now iterates all stored secrets for verification. Settings support `webhook_secrets` array.
+
+### Architecture Docs
+- Updated `docs/ARCHITECTURE.md` sections 15.1-15.5 with verified findings, rejected false positive, additional discoveries (multi-secret model, platform-identity customers), and resolved status.
+
+## 2026-02-24 - Documentation: Audit Findings Logged
+
+### Audit Log Added
+- Added `docs/AUDIT_FINDINGS_2026-02-24.md` as the canonical audit handoff file for implementation/review continuity.
+- Logged confirmed PayNow API corrections (webhook payload shape, event naming normalization, signature format considerations, endpoint confirmations).
+- Logged IPS4 standards/compliance findings and validation constraints observed during audit.
+
+### Architecture and Feature Docs Updated
+- Updated `docs/ARCHITECTURE.md` with a dedicated audit section:
+  - implementation corrections to apply
+  - Stripe-parity requirements for invoice/settlement/monitoring UX
+  - confirmed skeleton gaps
+- Updated `docs/FEATURES.MD` with an explicit audit-backed parity backlog so PayNow implementation tracks Stripe feature parity.
+
 ## 2026-02-24 - v1.0.0: Skeleton App Structure
 
 ### App Scaffold

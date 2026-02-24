@@ -2,14 +2,17 @@
 
 ## Current Status
 
-`xpaynowcheckout` is a skeleton IPS4 app ready for Codex/developer implementation.
+`xpaynowcheckout` v1.0.1 — scaffold + audit corrections applied. Installed and enabled in dev environment. Next: Phase 1 (core checkout flow).
 
-- App scaffold and all config files (application.json, modules.json, hooks.json, etc.) are in place.
-- Gateway class, webhook controller, integrity panel, forensics viewer, tasks, hooks, and extensions are stubbed with TODO markers.
-- PayNow HMAC-SHA256 webhook signature verification is implemented.
-- Settlement snapshot schema and forensics table are defined.
-- Language file contains all required keys for gateway settings, webhook handling, ACP panels, and alerts.
-- Template stubs exist for settlement cards (front-end, print), integrity panel, and member profile block.
+**Done** (v1.0.0–v1.0.1):
+- App scaffold with all config files, Application.php, schema.json.
+- Gateway class with settings form. Webhook controller with base64 HMAC-SHA256 signature verification, multi-secret iteration, forensic logging.
+- 6 hooks: gateway registration, coupon naming, invoice view, settlement themes (x2), member profile.
+- ACP modules (integrity + forensics), tasks, extensions, templates — all stubbed with TODO markers.
+- Language file with 100+ keys. DB table `pnc_webhook_forensics`.
+
+**Next** (Phase 1 — Core Checkout):
+- `auth()`, `testSettings()`, `OnOrderCompleted` handler, customer resolution, settlement snapshots.
 
 ## Source Paths
 

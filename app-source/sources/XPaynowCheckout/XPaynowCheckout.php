@@ -299,9 +299,9 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 			return FALSE;
 		}
 
-		// HMAC: sha256( timestamp . "." . payload, secret )
+		// HMAC-SHA256 with base64 output (PayNow sends base64-encoded signatures)
 		$signedPayload = $timestamp . '.' . $payload;
-		$expectedSignature = \hash_hmac( 'sha256', $signedPayload, $secret );
+		$expectedSignature = \base64_encode( \hash_hmac( 'sha256', $signedPayload, $secret, TRUE ) );
 
 		return \hash_equals( $expectedSignature, $signature );
 	}
