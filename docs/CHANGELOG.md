@@ -1,5 +1,11 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-24 - v1.0.4: Fix gateway settings fields
+
+### Bug Fixes
+- Changed webhook URL from disabled Text to editable Url field so admins can set the external tunnel URL.
+- Changed webhook secret from disabled to required editable Text field so admins can paste the signing secret from PayNow dashboard.
+
 ## 2026-02-24 - v1.0.3: Fix gateway registration hook
 
 ### Bug Fix

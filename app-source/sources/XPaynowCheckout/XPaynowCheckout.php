@@ -198,8 +198,8 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_default_product_id', isset( $settings['default_product_id'] ) ? $settings['default_product_id'] : NULL, TRUE ) );
 
 		$form->addHeader( 'xpaynowcheckout_webhook' );
-		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_webhook_url', isset( $settings['webhook_url'] ) ? $settings['webhook_url'] : NULL, FALSE, array( 'disabled' => !isset( $settings['webhook_url'] ) ) ) );
-		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_webhook_secret', isset( $settings['webhook_secret'] ) ? $settings['webhook_secret'] : NULL, FALSE, array( 'disabled' => !isset( $settings['webhook_secret'] ) ) ) );
+		$form->add( new \IPS\Helpers\Form\Url( 'xpaynowcheckout_webhook_url', isset( $settings['webhook_url'] ) ? $settings['webhook_url'] : NULL, FALSE, array(), NULL, NULL, NULL, 'xpaynowcheckout_webhook_url' ) );
+		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_webhook_secret', isset( $settings['webhook_secret'] ) ? $settings['webhook_secret'] : NULL, TRUE ) );
 
 		$form->addHeader( 'xpaynowcheckout_checkout_settings' );
 		$form->add( new \IPS\Helpers\Form\Url( 'xpaynowcheckout_return_url', isset( $settings['return_url'] ) ? $settings['return_url'] : NULL, FALSE ) );
