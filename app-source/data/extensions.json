@@ -1,0 +1,10 @@
+{
+    "core": {
+        "MemberACPProfileBlocks": {
+            "PaynowPaymentSummary": "IPS\\xpaynowcheckout\\extensions\\core\\MemberACPProfileBlocks\\PaynowPaymentSummary"
+        },
+        "AdminNotifications": {
+            "PaymentIntegrity": "IPS\\xpaynowcheckout\\extensions\\core\\AdminNotifications\\PaymentIntegrity"
+        }
+    }
+}
