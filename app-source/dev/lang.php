@@ -13,7 +13,7 @@ $lang = array(
 'xpaynowcheckout_store_id'	=> 'Store ID',
 'xpaynowcheckout_store_id_desc'	=> 'Your PayNow store identifier (Flake ID format).',
 'xpaynowcheckout_default_product_id'	=> 'Default Product ID',
-'xpaynowcheckout_default_product_id_desc'	=> 'A PayNow product ID used for checkout line items. Create a generic product in your PayNow dashboard and paste its ID here.',
+'xpaynowcheckout_default_product_id_desc'	=> 'Optional. A fallback PayNow product ID. When left empty, invoice items are sent as inline products with their IPS names and prices.',
 
 /* ACP Settings - Webhook */
 'xpaynowcheckout_webhook'	=> 'Webhook',

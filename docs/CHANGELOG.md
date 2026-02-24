@@ -1,5 +1,17 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-24 - v1.0.6: Dynamic inline product line items
+
+### Feature
+- Replaced static `default_product_id` usage with dynamic `inline_product` line items in `auth()`.
+  Each IPS invoice item now becomes a PayNow checkout line with the actual product name and price,
+  matching the Stripe gateway's inline `product_data` pattern.
+- New `buildPaynowLineItems()` method iterates `$transaction->invoice->items`, builds inline product
+  definitions with name, description, price (minor units), and quantity per line item.
+- Fallback: if no invoice items resolve, a single summary line with the invoice total is used.
+- `default_product_id` is now optional (no longer required in settings or `checkValidity()`).
+- Updated language description for the Default Product ID setting to reflect optional status.
+
 ## 2026-02-24 - v1.0.5: Fix webhook body parsing
 
 ### Bug Fix

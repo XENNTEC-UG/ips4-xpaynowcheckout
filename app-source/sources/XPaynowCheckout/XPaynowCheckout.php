@@ -78,9 +78,8 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 
 		$apiKey = isset( $settings['api_key'] ) ? \trim( (string) $settings['api_key'] ) : '';
 		$storeId = isset( $settings['store_id'] ) ? \trim( (string) $settings['store_id'] ) : '';
-		$defaultProductId = isset( $settings['default_product_id'] ) ? \trim( (string) $settings['default_product_id'] ) : '';
 
-		if ( $apiKey === '' OR $storeId === '' OR $defaultProductId === '' )
+		if ( $apiKey === '' OR $storeId === '' )
 		{
 			throw new \LogicException( 'xpaynowcheckout_missing_required_settings' );
 		}
@@ -91,14 +90,8 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		/* Resolve or create PayNow customer */
 		$customerId = $this->getPaynowCustomer( $transaction, $settings );
 
-		/* Build checkout lines — single line with default product */
-		$lines = array(
-			array(
-				'product_id'   => $defaultProductId,
-				'quantity'     => 1,
-				'subscription' => FALSE,
-			),
-		);
+		/* Build checkout lines from invoice items using inline_product (Stripe-style) */
+		$lines = $this->buildPaynowLineItems( $transaction );
 
 		/* Build return/cancel URLs */
 		$returnUrl = !empty( $settings['return_url'] )
@@ -167,8 +160,7 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		/* Block if essential settings are missing */
 		if ( !\is_array( $settings )
 			OR empty( $settings['api_key'] )
-			OR empty( $settings['store_id'] )
-			OR empty( $settings['default_product_id'] ) )
+			OR empty( $settings['store_id'] ) )
 		{
 			return FALSE;
 		}
@@ -195,7 +187,7 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		$form->addHeader( 'xpaynowcheckout_credentials' );
 		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_api_key', isset( $settings['api_key'] ) ? $settings['api_key'] : NULL, TRUE ) );
 		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_store_id', isset( $settings['store_id'] ) ? $settings['store_id'] : NULL, TRUE ) );
-		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_default_product_id', isset( $settings['default_product_id'] ) ? $settings['default_product_id'] : NULL, TRUE ) );
+		$form->add( new \IPS\Helpers\Form\Text( 'xpaynowcheckout_default_product_id', isset( $settings['default_product_id'] ) ? $settings['default_product_id'] : NULL, FALSE ) );
 
 		$form->addHeader( 'xpaynowcheckout_webhook' );
 		$form->add( new \IPS\Helpers\Form\Url( 'xpaynowcheckout_webhook_url', isset( $settings['webhook_url'] ) ? $settings['webhook_url'] : NULL, FALSE, array(), NULL, NULL, NULL, 'xpaynowcheckout_webhook_url' ) );
@@ -403,6 +395,94 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		$minor = $money->amount->multiply( $multiplier );
 
 		return (int) (string) $minor;
+	}
+
+	/**
+	 * Build PayNow checkout line items from invoice items using inline_product.
+	 *
+	 * Each IPS invoice item becomes a line with an inline product definition
+	 * containing the item name and price. This mirrors the Stripe pattern of
+	 * inline product_data per line item (stateless, no mapping table).
+	 *
+	 * @param	\IPS\nexus\Transaction	$transaction	Transaction
+	 * @return	array
+	 */
+	protected function buildPaynowLineItems( \IPS\nexus\Transaction $transaction )
+	{
+		$lineItems = array();
+
+		$invoiceLabel = \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_payment_invoice', FALSE, array( 'sprintf' => array( $transaction->invoice->id ) ) );
+		\IPS\Member::loggedIn()->language()->parseOutputForDisplay( $invoiceLabel );
+
+		foreach ( $transaction->invoice->items as $invoiceItem )
+		{
+			if ( !isset( $invoiceItem->price ) OR !( $invoiceItem->price instanceof \IPS\nexus\Money ) )
+			{
+				continue;
+			}
+
+			$quantity = isset( $invoiceItem->quantity ) ? (int) $invoiceItem->quantity : 1;
+			if ( $quantity < 1 )
+			{
+				$quantity = 1;
+			}
+
+			$unitAmount = $this->moneyToMinorUnit( $invoiceItem->price );
+			if ( $unitAmount <= 0 )
+			{
+				continue;
+			}
+
+			$itemName = isset( $invoiceItem->name ) ? \trim( (string) $invoiceItem->name ) : '';
+			if ( $itemName === '' )
+			{
+				$itemName = $invoiceLabel;
+			}
+			\IPS\Member::loggedIn()->language()->parseOutputForDisplay( $itemName );
+
+			/* PayNow requires description 25-50000 chars */
+			$itemDescription = $itemName . ' — ' . $invoiceLabel;
+			if ( \mb_strlen( $itemDescription ) < 25 )
+			{
+				$itemDescription = \str_pad( $itemDescription, 25, '.' );
+			}
+
+			$lineItems[] = array(
+				'inline_product' => array(
+					'name'                    => $itemName,
+					'description'             => $itemDescription,
+					'price'                   => $unitAmount,
+					'allow_one_time_purchase' => TRUE,
+				),
+				'quantity'     => $quantity,
+				'subscription' => FALSE,
+			);
+		}
+
+		/* Fallback: no items resolved — single summary line with total amount */
+		if ( empty( $lineItems ) )
+		{
+			$fallbackAmount = $this->moneyToMinorUnit( $transaction->invoice->amountToPay() );
+
+			$fallbackDescription = $invoiceLabel;
+			if ( \mb_strlen( $fallbackDescription ) < 25 )
+			{
+				$fallbackDescription = \str_pad( $fallbackDescription, 25, '.' );
+			}
+
+			$lineItems[] = array(
+				'inline_product' => array(
+					'name'                    => $invoiceLabel,
+					'description'             => $fallbackDescription,
+					'price'                   => $fallbackAmount,
+					'allow_one_time_purchase' => TRUE,
+				),
+				'quantity'     => 1,
+				'subscription' => FALSE,
+			);
+		}
+
+		return $lineItems;
 	}
 
 	/**

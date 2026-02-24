@@ -6,7 +6,7 @@
 
 | Package version | Long version | Source |
 | --- | --- | --- |
-| `1.0.2` | `10002` | `app-source/data/versions.json` |
+| `1.0.6` | `10006` | `app-source/data/versions.json` |
 
 ## Product Positioning
 
@@ -46,13 +46,14 @@
 - DB table `pnc_webhook_forensics` with indexes.
 - App installed and enabled in dev environment.
 
-### Phase 1 — Core Checkout (DONE in v1.0.2)
+### Phase 1 — Core Checkout (DONE in v1.0.2, enhanced v1.0.6)
 - `auth()` — Hosted checkout session creation, redirect to PayNow checkout URL, gw_id correlation.
+- **Dynamic inline products** (v1.0.6) — `buildPaynowLineItems()` iterates invoice items, creates `inline_product` per line with actual IPS product name and price. Matches Stripe's `product_data` pattern (stateless, no mapping table).
 - `testSettings()` — API key validation, auto-create multi-secret webhook subscriptions, webhook URL generation.
 - `OnOrderCompleted` webhook handler — Transaction resolution (3-level fallback), settlement snapshot, `checkFraudRulesAndCapture()`.
 - Customer resolution — Create/lookup PayNow customer via `cm_profiles` caching.
 - Settlement snapshot persistence in `t_extra` and `i_status_extra` with mismatch detection.
-- Gateway settings: `default_product_id` required field, `checkValidity()` enforcement.
+- Gateway settings: `default_product_id` optional fallback, `checkValidity()` requires only API key + store ID.
 
 ### Phase 2 — Refund & Chargeback (TODO)
 - `refund()` — Call PayNow order refund API.
