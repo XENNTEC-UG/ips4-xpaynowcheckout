@@ -114,7 +114,7 @@ class _webhook extends \IPS\Dispatcher\Controller
 
 		$eventType = isset( $payload['event_type'] ) ? (string) $payload['event_type'] : '';
 		$eventId = isset( $payload['event_id'] ) ? (string) $payload['event_id'] : '';
-		$eventBody = isset( $payload['body'] ) AND \is_array( $payload['body'] ) ? $payload['body'] : array();
+		$eventBody = ( isset( $payload['body'] ) && \is_array( $payload['body'] ) ) ? $payload['body'] : array();
 
 		try
 		{

@@ -1,5 +1,12 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-24 - v1.0.5: Fix webhook body parsing
+
+### Bug Fix
+- Fixed PHP operator precedence bug in webhook controller: `isset() AND is_array()` with ternary
+  evaluated to boolean instead of array due to `AND` vs `&&` precedence. Changed to `&&` with
+  explicit parentheses. This caused a TypeError crash on every incoming webhook.
+
 ## 2026-02-24 - v1.0.4: Fix gateway settings fields
 
 ### Bug Fixes
