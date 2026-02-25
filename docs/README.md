@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`xpaynowcheckout` v1.0.8 — Phase 1 (core checkout) + Phase 2 (refund & chargeback) complete. Next: Phase 3 (monitoring & resilience).
+`xpaynowcheckout` v1.0.9 — Phase 1 (core checkout) + Phase 2 (refund & chargeback) + Phase 3 (monitoring & resilience) + Phase 4 (invoice settlement UX) complete. Next: Phase 5 (subscription support, deferred).
 
 **Done** (v1.0.0–v1.0.8):
 - App scaffold with all config files, Application.php, schema.json.
@@ -23,8 +23,16 @@
 - `PaynowPaymentSummary` — ACP member profile block (chargebacks, refunds, ban status).
 - `resolveTransactionFromWebhook()` — shared 3-level transaction resolution helper.
 
-**Next** (Phase 3 — Monitoring & Resilience):
-- Integrity panel implementation, forensics viewer, webhook replay, admin notifications.
+**Done** (v1.0.9):
+- Integrity panel with 4 status cards, replay buttons, error/mismatch tables.
+- Webhook replay task (fetch delivery history, deduplicate, re-sign, forward).
+- Integrity monitor task with AdminNotification send/clear/selfDismiss.
+- Invoice view hook with two-column settlement layout (charge summary + payment refs).
+- Client settle + print settle theme hooks.
+- 17 new lang keys.
+
+**Next** (Phase 5 — Subscription Support, deferred):
+- `OnSubscriptionActivated` / `OnSubscriptionRenewed` / `OnSubscriptionCanceled` handlers.
 
 ## Source Paths
 

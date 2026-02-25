@@ -1,5 +1,39 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-25 - v1.0.9: Phase 3 — Monitoring & Resilience + Phase 4 — Invoice Settlement UX
+
+### Monitoring & Resilience (Phase 3)
+- **Integrity panel** (ACP): full dashboard with 4 status cards (Webhook config, Replay Task health,
+  Errors 24h, Mismatches 30d), inline CSS, replay Run Now / Dry Run buttons, error acknowledge button,
+  webhook error table, mismatch table with transaction/invoice links.
+- **Webhook replay task**: full implementation fetching delivery history from PayNow API per-webhook
+  subscription, filtering failed deliveries, deduplicating by event_id, and re-signing/forwarding
+  to local webhook endpoint with valid PayNow-Signature/PayNow-Timestamp headers. Supports dry-run
+  mode, configurable lookback/overlap/max-events, and persistent replay state via datastore.
+- **Integrity monitor task**: delegates to `PaymentIntegrity::runChecksAndSendNotifications()` for
+  send/clear notification pattern. Once-daily forensics pruning (90-day retention) with last-cleaned
+  timestamp guard.
+- **AdminNotification extension**: full implementation with `runChecksAndSendNotifications()`,
+  `selfDismiss()`, `subtitle()` with dynamic counts, severity (HIGH for webhook errors/replay stale,
+  NORMAL for mismatches), style (ERROR for webhook errors, WARNING for others), dismissible temporary.
+
+### Invoice Settlement UX (Phase 4)
+- **Invoice view hook**: post-processes `\IPS\Output::i()->output` to inject PayNow Charge Summary
+  (subtotal, discount, net subtotal, tax, total) and Payment & References (captured_at, order_id,
+  pretty_id, billing name/email/country, completed_at) in a two-column layout alongside Order Details.
+  Includes tax-explains-difference info message and total mismatch warning.
+- **Client settle theme hook**: `hookData()` with `replace` on `.ipsBox--child` in `invoice` template.
+  Shows PayNow total with provider-charged label, pretty_id, IPS invoice total comparison. Falls back
+  to standard display for non-PayNow invoices.
+- **Print settle theme hook**: `hookData()` with `add_after` on `.ipsPrint > table` in `printInvoice`
+  template. Renders charge summary table + payment refs table for print-friendly output.
+
+### Language
+- Added 17 new lang keys: charge_summary, discount, net_subtotal, tax_explains_diff, captured_at,
+  completed_at, pretty_id, billing_name, billing_email, billing_country, source_truth,
+  provider_charged_label, ips_invoice_total_label, 3 notification subtitles, 2 dry-run result keys,
+  2 ACP log keys.
+
 ## 2026-02-25 - v1.0.8: Phase 2 — Refund & Chargeback
 
 ### Refund

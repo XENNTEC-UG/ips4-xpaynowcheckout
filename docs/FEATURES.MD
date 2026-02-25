@@ -6,7 +6,7 @@
 
 | Package version | Long version | Source |
 | --- | --- | --- |
-| `1.0.8` | `10008` | `app-source/data/versions.json` |
+| `1.0.9` | `10009` | `app-source/data/versions.json` |
 
 ## Product Positioning
 
@@ -63,18 +63,25 @@
 - `PaynowPaymentSummary` — ACP member profile block showing chargebacks, refunds, ban status.
 - `resolveTransactionFromWebhook()` — Shared 3-level transaction resolution helper.
 
-### Phase 3 — Monitoring & Resilience (TODO)
-- Integrity panel implementation with health cards, mismatch table, replay status.
-- Forensics viewer with full filter/delete capability.
-- Webhook replay via PayNow `/webhooks/{id}/history` API.
-- AdminNotification alert conditions.
-- Error acknowledge button on integrity panel.
+### Phase 3 — Monitoring & Resilience (DONE in v1.0.9)
+- Integrity panel with 4 status cards (Webhook, Replay Task, Errors 24h, Mismatches 30d), inline CSS.
+- Replay Run Now + Dry Run buttons with config table and persistent state display.
+- Webhook error table with Acknowledge button (removes AdminNotification, stores ack timestamp).
+- Mismatch table with transaction/invoice links.
+- Webhook replay task: lists all webhook subscriptions, fetches delivery history, filters failures,
+  deduplicates by event_id, re-signs with PayNow HMAC-SHA256, forwards to local webhook URL.
+- Integrity monitor task: delegates to `PaymentIntegrity::runChecksAndSendNotifications()` for
+  conditional send/remove pattern. Once-daily forensics pruning with 90-day retention.
+- AdminNotification: full `runChecksAndSendNotifications()`, `selfDismiss()`, dynamic `subtitle()`,
+  severity/style per alert type, dismissible temporary.
 
-### Phase 4 — Polish (TODO)
-- Invoice view settlement card (theme hooks with full data rendering).
-- Print invoice settlement card.
-- IPS coupon forwarding (create PayNow coupon for IPS discounts).
-- Currency validation in `checkValidity()`.
+### Phase 4 — Invoice Settlement UX (DONE in v1.0.9)
+- Invoice view hook: two-column layout with Charge Summary (subtotal, discount, net, tax, total)
+  and Payment & References (order_id, pretty_id, billing info, timestamps).
+- Client settle theme hook: `.ipsBox--child` replace with PayNow total, provider label, pretty_id.
+- Print settle theme hook: `.ipsPrint > table` add_after with charge summary + payment refs tables.
+- IPS coupon forwarding — deferred (PayNow coupon API not yet available).
+- Currency validation in `checkValidity()` — deferred.
 
 ### Phase 5 — Subscription Support (Future)
 - `OnSubscriptionActivated` / `OnSubscriptionRenewed` / `OnSubscriptionCanceled` handlers.
@@ -92,14 +99,14 @@ Full audit log: `docs/ARCHITECTURE.md` section 15.
 
 ### Stripe-equivalent UX/features to carry into PayNow
 - ~~Invoice hook parity: run on invoice `view()` path~~ — DONE
-- Invoice hook parity: add two-column layout with provider settlement summary — TODO
-- Invoice hook parity: append Payment & References section — TODO
-- Settlement parity: subtotal, discount, net subtotal, tax, and total formatting — TODO
-- Settlement parity: mismatch and tax-difference explanation states — TODO
-- Settlement parity: provider IDs and customer-facing invoice/receipt links — TODO
-- Print parity: implement print settlement view — TODO
-- Monitoring parity: integrity cards/tables with endpoint drift visibility — TODO
-- Monitoring parity: replay controls including dry-run behavior — TODO
+- ~~Invoice hook parity: add two-column layout with provider settlement summary~~ — DONE (v1.0.9)
+- ~~Invoice hook parity: append Payment & References section~~ — DONE (v1.0.9)
+- ~~Settlement parity: subtotal, discount, net subtotal, tax, and total formatting~~ — DONE (v1.0.9)
+- ~~Settlement parity: mismatch and tax-difference explanation states~~ — DONE (v1.0.9)
+- Settlement parity: provider IDs and customer-facing invoice/receipt links — N/A (PayNow does not provide customer receipt URLs)
+- ~~Print parity: implement print settlement view~~ — DONE (v1.0.9)
+- ~~Monitoring parity: integrity cards/tables with endpoint drift visibility~~ — DONE (v1.0.9, no endpoint drift — PayNow uses per-event webhooks)
+- ~~Monitoring parity: replay controls including dry-run behavior~~ — DONE (v1.0.9)
 - ~~Hook parity: add `couponNameHook`~~ — DONE
 
 ## Capability Highlights

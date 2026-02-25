@@ -47,16 +47,29 @@ $lang = array(
 /* Invoice / Settlement */
 'xpaynowcheckout_payment_invoice'	=> 'Payment for Invoice #%s',
 'xpaynowcheckout_settle_title'	=> 'PayNow Settlement',
+'xpaynowcheckout_settle_charge_summary'	=> 'Charge Summary',
 'xpaynowcheckout_settle_subtotal'	=> 'Subtotal',
+'xpaynowcheckout_settle_discount'	=> 'Discount',
+'xpaynowcheckout_settle_net_subtotal'	=> 'Net subtotal',
 'xpaynowcheckout_settle_tax'	=> 'Tax',
 'xpaynowcheckout_settle_total_charged'	=> 'Total charged',
 'xpaynowcheckout_settle_ips_total'	=> 'Invoice total (IPS)',
 'xpaynowcheckout_settle_mismatch_title'	=> 'Total mismatch',
 'xpaynowcheckout_settle_mismatch_warning'	=> 'The PayNow total does not match the IPS invoice total.',
+'xpaynowcheckout_settle_tax_explains_diff'	=> 'The difference between the PayNow total and IPS total is fully explained by tax collected at the provider.',
 'xpaynowcheckout_settle_payment_refs'	=> 'Payment & References',
-'xpaynowcheckout_settle_order_id'	=> 'PayNow Order',
+'xpaynowcheckout_settle_order_id'	=> 'PayNow Order ID',
+'xpaynowcheckout_settle_pretty_id'	=> 'Order Reference',
 'xpaynowcheckout_settle_payment_id'	=> 'Payment ID',
 'xpaynowcheckout_settle_payment_method'	=> 'Payment method',
+'xpaynowcheckout_settle_captured_at'	=> 'Captured',
+'xpaynowcheckout_settle_completed_at'	=> 'Completed',
+'xpaynowcheckout_settle_billing_name'	=> 'Billing name',
+'xpaynowcheckout_settle_billing_email'	=> 'Billing email',
+'xpaynowcheckout_settle_billing_country'	=> 'Billing country',
+'xpaynowcheckout_settle_source_truth'	=> 'Settlement data sourced from PayNow at time of payment capture. This is the provider source of truth.',
+'xpaynowcheckout_provider_charged_label'	=> 'Charged via PayNow',
+'xpaynowcheckout_ips_invoice_total_label'	=> 'IPS invoice total',
 
 /* Refund reasons */
 'xpaynowcheckout_reason_customer_request'	=> 'Requested by customer',
@@ -103,6 +116,17 @@ $lang = array(
 'pnc_alert_webhook_errors_body'	=> 'Check the PayNow Checkout integrity panel for error details.',
 'pnc_alert_replay_stale_body'	=> 'The replay task may not be running. Check task scheduler and integrity panel.',
 'pnc_alert_mismatches_body'	=> 'PayNow-vs-IPS total mismatches found. Review the integrity panel.',
+'pnc_alert_webhook_errors_subtitle'	=> '%d webhook error(s) in the last 24 hours.',
+'pnc_alert_replay_stale_subtitle'	=> 'The replay task has not run within its expected window.',
+'pnc_alert_mismatches_subtitle'	=> '%d PayNow-vs-IPS mismatch(es) in the last 30 days.',
+
+/* Integrity - Dry Run */
+'pnc_integrity_dry_run_result'	=> 'Dry run found %d replayable event(s).',
+'pnc_integrity_dry_run_none'	=> 'Dry run: no replayable events found.',
+
+/* ACP log keys */
+'acplogs__xpaynowcheckout_integrity_replay'	=> 'Ran PayNow webhook replay manually.',
+'acplogs__xpaynowcheckout_integrity_dry_run'	=> 'Ran PayNow webhook replay dry run.',
 
 /* Tasks */
 'task__pncIntegrityMonitor'	=> 'PayNow Checkout Integrity Monitor',

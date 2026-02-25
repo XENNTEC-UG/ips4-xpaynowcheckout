@@ -14,72 +14,51 @@ if ( !\defined( '\IPS\SUITE_UNIQUE_KEY' ) )
 }
 
 /**
- * Integrity Monitor Task — checks alert conditions and prunes old forensics.
+ * Lightweight polling task that checks payment integrity metrics
+ * and sends/clears ACP admin notifications via the PaymentIntegrity extension.
  *
- * Runs every 5 minutes.
+ * Runs every 5 minutes. Only local DB queries — no external API calls.
  */
 class _pncIntegrityMonitor extends \IPS\Task
 {
 	/**
-	 * Execute
+	 * @brief	Forensics retention: 90 days
+	 */
+	const FORENSICS_RETENTION_DAYS = 90;
+
+	/**
+	 * Execute.
 	 *
 	 * @return	mixed	Message to log or NULL
 	 * @throws	\IPS\Task\Exception
 	 */
 	public function execute()
 	{
-		$stats = \IPS\xpaynowcheckout\XPaynowCheckout::collectAlertStats();
-
-		/* Check alert conditions and raise AdminNotifications */
-		if ( $stats['webhook_error_count_24h'] > 0 )
-		{
-			$this->raiseAlert( 'webhook_errors', $stats );
-		}
-
-		if ( !$stats['replay_recent_run'] )
-		{
-			$this->raiseAlert( 'replay_stale', $stats );
-		}
-
-		if ( $stats['mismatch_count_30d'] > 0 )
-		{
-			$this->raiseAlert( 'mismatches', $stats );
-		}
-
-		/* Prune forensics older than 90 days */
-		$this->pruneForensics();
-
-		return NULL;
-	}
-
-	/**
-	 * Raise an AdminNotification alert.
-	 *
-	 * @param	string	$alertType
-	 * @param	array	$stats
-	 * @return	void
-	 */
-	protected function raiseAlert( $alertType, array $stats )
-	{
-		// TODO: Send AdminNotification via PaymentIntegrity extension
-	}
-
-	/**
-	 * Prune forensics entries older than 90 days.
-	 *
-	 * @return	void
-	 */
-	protected function pruneForensics()
-	{
-		$cutoff = \time() - ( 90 * 86400 );
-
 		try
 		{
-			\IPS\Db::i()->delete( 'pnc_webhook_forensics', array( 'created_at<?', $cutoff ) );
+			\IPS\xpaynowcheckout\extensions\core\AdminNotifications\PaymentIntegrity::runChecksAndSendNotifications();
 		}
-		catch ( \Exception $e )
+		catch ( \Throwable $e )
 		{
-			\IPS\Log::log( $e, 'xpaynowcheckout_forensics' );
+			\IPS\Log::log( $e, 'xpaynowcheckout_integrity_monitor' );
 		}
+
+		/* Prune old forensics entries (once daily via last-cleaned check) */
+		try
+		{
+			$lastCleaned = isset( \IPS\Data\Store::i()->pnc_forensics_last_cleaned ) ? (int) \IPS\Data\Store::i()->pnc_forensics_last_cleaned : 0;
+			if ( \time() - $lastCleaned > 86400 )
+			{
+				$cutoff = \time() - ( static::FORENSICS_RETENTION_DAYS * 86400 );
+				\IPS\Db::i()->delete( 'pnc_webhook_forensics', array( 'created_at<?', $cutoff ) );
+				\IPS\Data\Store::i()->pnc_forensics_last_cleaned = \time();
+			}
+		}
+		catch ( \Throwable $e )
+		{
+			\IPS\Log::log( $e, 'xpaynowcheckout_forensics_cleanup' );
+		}
+
+		return NULL;
 	}
 }
