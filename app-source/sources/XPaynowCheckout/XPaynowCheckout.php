@@ -300,10 +300,35 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	 */
 	public function refund( \IPS\nexus\Transaction $transaction, $amount = NULL, $reason = NULL )
 	{
-		// TODO: POST /v1/stores/{storeId}/orders/{orderId}/refund
-		// PayNow only supports full order refund (no partial amount)
-		// If $amount is provided and differs from full amount, log warning
-		throw new \RuntimeException( 'PayNow refund not yet implemented.' );
+		$settings = json_decode( $this->settings, TRUE );
+		if ( !\is_array( $settings ) OR empty( $settings['api_key'] ) OR empty( $settings['store_id'] ) )
+		{
+			throw new \RuntimeException( 'xpaynowcheckout_missing_api_credentials' );
+		}
+
+		$orderId = $transaction->gw_id;
+		if ( empty( $orderId ) )
+		{
+			throw new \RuntimeException( 'xpaynowcheckout_missing_order_id' );
+		}
+
+		/* PayNow only supports full order refunds — log warning if partial amount requested */
+		if ( $amount !== NULL )
+		{
+			\IPS\Log::log( 'PayNow refund: partial amount requested but only full refund supported. Transaction: ' . $transaction->id, 'xpaynowcheckout_refund' );
+		}
+
+		try
+		{
+			$response = static::apiRequest( 'post', '/stores/' . $settings['store_id'] . '/orders/' . $orderId . '/refund', $settings );
+		}
+		catch ( \Exception $e )
+		{
+			\IPS\Log::log( $e, 'xpaynowcheckout_refund' );
+			throw new \RuntimeException( $e->getMessage() );
+		}
+
+		return isset( $response['id'] ) ? (string) $response['id'] : NULL;
 	}
 
 	/**

@@ -175,6 +175,69 @@ class _webhook extends \IPS\Dispatcher\Controller
 	}
 
 	/**
+	 * Resolve an IPS transaction from webhook body metadata.
+	 *
+	 * Three-level fallback:
+	 * 1. $body['metadata']['ips_transaction_id']
+	 * 2. $body['checkout']['metadata']['ips_transaction_id']
+	 * 3. DB lookup by $body['order_id'] or $body['checkout_id'] as gw_id
+	 *
+	 * @param	array									$body		Webhook event body
+	 * @param	\IPS\xpaynowcheckout\XPaynowCheckout	$gateway	Gateway instance
+	 * @return	\IPS\nexus\Transaction
+	 * @throws	\OutOfRangeException	If transaction cannot be resolved
+	 */
+	protected function resolveTransactionFromWebhook( array $body, $gateway )
+	{
+		$transactionId = NULL;
+
+		/* Level 1: direct metadata */
+		if ( isset( $body['metadata']['ips_transaction_id'] ) )
+		{
+			$transactionId = (int) $body['metadata']['ips_transaction_id'];
+		}
+		/* Level 2: nested checkout metadata */
+		elseif ( isset( $body['checkout']['metadata']['ips_transaction_id'] ) )
+		{
+			$transactionId = (int) $body['checkout']['metadata']['ips_transaction_id'];
+		}
+		/* Level 3: DB lookup by order_id or checkout_id stored as gw_id */
+		else
+		{
+			$gwIdCandidates = array();
+			if ( isset( $body['order_id'] ) AND \is_string( $body['order_id'] ) )
+			{
+				$gwIdCandidates[] = $body['order_id'];
+			}
+			if ( isset( $body['checkout_id'] ) AND \is_string( $body['checkout_id'] ) )
+			{
+				$gwIdCandidates[] = $body['checkout_id'];
+			}
+			if ( isset( $body['id'] ) AND \is_string( $body['id'] ) )
+			{
+				$gwIdCandidates[] = $body['id'];
+			}
+
+			foreach ( $gwIdCandidates as $candidate )
+			{
+				try
+				{
+					$transactionId = (int) \IPS\Db::i()->select( 't_id', 'nexus_transactions', array( 't_gw_id=? AND t_method=?', $candidate, $gateway->id ) )->first();
+					break;
+				}
+				catch ( \UnderflowException $e ) {}
+			}
+		}
+
+		if ( !$transactionId )
+		{
+			throw new \OutOfRangeException( 'No transaction resolved from webhook body' );
+		}
+
+		return \IPS\nexus\Transaction::load( $transactionId );
+	}
+
+	/**
 	 * Handle ON_ORDER_COMPLETED — approve the pending transaction.
 	 *
 	 * @param	array	$body		Order data from webhook body
@@ -185,40 +248,14 @@ class _webhook extends \IPS\Dispatcher\Controller
 	 */
 	protected function handleOrderCompleted( array $body, $eventId, $gateway, array $settings )
 	{
-		/* Extract IPS transaction ID from metadata */
-		$transactionId = NULL;
-		if ( isset( $body['metadata']['ips_transaction_id'] ) )
-		{
-			$transactionId = (int) $body['metadata']['ips_transaction_id'];
-		}
-		elseif ( isset( $body['checkout']['metadata']['ips_transaction_id'] ) )
-		{
-			$transactionId = (int) $body['checkout']['metadata']['ips_transaction_id'];
-		}
-		/* Fallback: match by checkout_id stored as gw_id in auth() */
-		elseif ( isset( $body['checkout_id'] ) )
-		{
-			try
-			{
-				$transactionId = (int) \IPS\Db::i()->select( 't_id', 'nexus_transactions', array( 't_gw_id=? AND t_method=?', (string) $body['checkout_id'], $gateway->id ) )->first();
-			}
-			catch ( \UnderflowException $e ) {}
-		}
-
-		if ( !$transactionId )
-		{
-			\IPS\Log::log( 'ON_ORDER_COMPLETED: No ips_transaction_id in metadata. Order: ' . ( isset( $body['id'] ) ? $body['id'] : 'unknown' ), 'xpaynowcheckout_webhook' );
-			return;
-		}
-
-		/* Load transaction */
+		/* Resolve IPS transaction */
 		try
 		{
-			$transaction = \IPS\nexus\Transaction::load( $transactionId );
+			$transaction = $this->resolveTransactionFromWebhook( $body, $gateway );
 		}
 		catch ( \OutOfRangeException $e )
 		{
-			\IPS\Log::log( 'ON_ORDER_COMPLETED: Transaction not found: ' . $transactionId, 'xpaynowcheckout_webhook' );
+			\IPS\Log::log( 'ON_ORDER_COMPLETED: ' . $e->getMessage() . '. Order: ' . ( isset( $body['id'] ) ? $body['id'] : 'unknown' ), 'xpaynowcheckout_webhook' );
 			return;
 		}
 
@@ -286,8 +323,53 @@ class _webhook extends \IPS\Dispatcher\Controller
 	 */
 	protected function handleRefund( array $body, $eventId, $gateway, array $settings )
 	{
-		// TODO: Find matching IPS transaction via $body['order_id']
-		// TODO: Record refund status
+		/* Resolve transaction */
+		try
+		{
+			$transaction = $this->resolveTransactionFromWebhook( $body, $gateway );
+		}
+		catch ( \OutOfRangeException $e )
+		{
+			\IPS\Log::log( 'ON_REFUND: ' . $e->getMessage() . '. Event: ' . $eventId, 'xpaynowcheckout_webhook' );
+			return;
+		}
+
+		/* Idempotency — skip if already refunded */
+		if ( $transaction->status === \IPS\nexus\Transaction::STATUS_REFUNDED )
+		{
+			return;
+		}
+
+		/* Only mutate on terminal refund statuses */
+		$refundStatus = isset( $body['status'] ) ? (string) $body['status'] : '';
+		if ( $refundStatus !== 'completed' AND $refundStatus !== 'approved' )
+		{
+			\IPS\Log::log( 'ON_REFUND: Non-terminal status "' . $refundStatus . '" for transaction ' . $transaction->id . '. Skipping.', 'xpaynowcheckout_webhook' );
+			return;
+		}
+
+		/* Store refund metadata */
+		$extra = $transaction->extra;
+		if ( !\is_array( $extra ) )
+		{
+			$extra = array();
+		}
+		$extra['xpaynowcheckout_refund'] = array(
+			'refund_id'      => isset( $body['id'] ) ? (string) $body['id'] : '',
+			'payment_id'     => isset( $body['payment_id'] ) ? (string) $body['payment_id'] : '',
+			'order_id'       => isset( $body['order_id'] ) ? (string) $body['order_id'] : '',
+			'amount'         => isset( $body['amount'] ) ? (int) $body['amount'] : 0,
+			'amount_str'     => isset( $body['amount_str'] ) ? (string) $body['amount_str'] : '',
+			'status'         => $refundStatus,
+			'failure_reason' => isset( $body['failure_reason'] ) ? (string) $body['failure_reason'] : '',
+			'event_id'       => $eventId,
+			'captured_at'    => \time(),
+		);
+		$transaction->extra = $extra;
+
+		/* PayNow only supports full refunds */
+		$transaction->status = \IPS\nexus\Transaction::STATUS_REFUNDED;
+		$transaction->save();
 	}
 
 	/**
@@ -301,9 +383,75 @@ class _webhook extends \IPS\Dispatcher\Controller
 	 */
 	protected function handleChargeback( array $body, $eventId, $gateway, array $settings )
 	{
-		// TODO: Find matching IPS transaction via $body['order_id']
-		// TODO: If chargeback_ban enabled, ban the member
-		// TODO: Update transaction status
+		/* Resolve transaction */
+		try
+		{
+			$transaction = $this->resolveTransactionFromWebhook( $body, $gateway );
+		}
+		catch ( \OutOfRangeException $e )
+		{
+			\IPS\Log::log( 'ON_CHARGEBACK: ' . $e->getMessage() . '. Event: ' . $eventId, 'xpaynowcheckout_webhook' );
+			return;
+		}
+
+		/* Idempotency — skip if already disputed */
+		if ( $transaction->status === \IPS\nexus\Transaction::STATUS_DISPUTED )
+		{
+			return;
+		}
+
+		/* Store chargeback metadata */
+		$extra = $transaction->extra;
+		if ( !\is_array( $extra ) )
+		{
+			$extra = array();
+		}
+		$extra['xpaynowcheckout_chargeback'] = array(
+			'order_id'    => isset( $body['order_id'] ) ? (string) $body['order_id'] : ( isset( $body['id'] ) ? (string) $body['id'] : '' ),
+			'amount'      => isset( $body['amount'] ) ? (int) $body['amount'] : 0,
+			'amount_str'  => isset( $body['amount_str'] ) ? (string) $body['amount_str'] : '',
+			'status'      => isset( $body['status'] ) ? (string) $body['status'] : 'opened',
+			'reason'      => isset( $body['reason'] ) ? (string) $body['reason'] : '',
+			'event_id'    => $eventId,
+			'created_at'  => \time(),
+		);
+		$transaction->extra = $extra;
+		$transaction->status = \IPS\nexus\Transaction::STATUS_DISPUTED;
+		$transaction->save();
+
+		/* Ban member if chargeback_ban is enabled (default TRUE) */
+		$chargebackBan = isset( $settings['chargeback_ban'] ) ? (bool) $settings['chargeback_ban'] : TRUE;
+		$member = $transaction->member;
+
+		if ( $chargebackBan AND $member AND $member->member_id )
+		{
+			$member->temp_ban = -1;
+			$member->save();
+			$member->logHistory( 'core', 'warning', array(
+				'type'   => 'dispute_ban',
+				'reason' => 'PayNow chargeback on transaction ' . $transaction->id,
+			) );
+		}
+
+		/* Revoke benefits — mark invoice unpaid/canceled */
+		try
+		{
+			$transaction->invoice->markUnpaid( \IPS\nexus\Invoice::STATUS_CANCELED );
+		}
+		catch ( \Exception $e )
+		{
+			\IPS\Log::log( $e, 'xpaynowcheckout_chargeback' );
+		}
+
+		/* Admin notification */
+		try
+		{
+			\IPS\core\AdminNotification::send( 'nexus', 'Transaction', \IPS\nexus\Transaction::STATUS_DISPUTED, TRUE, $transaction );
+		}
+		catch ( \Exception $e )
+		{
+			\IPS\Log::log( $e, 'xpaynowcheckout_chargeback' );
+		}
 	}
 
 	/**
@@ -317,7 +465,65 @@ class _webhook extends \IPS\Dispatcher\Controller
 	 */
 	protected function handleChargebackClosed( array $body, $eventId, $gateway, array $settings )
 	{
-		// TODO: Log chargeback resolution
+		/* Resolve transaction */
+		try
+		{
+			$transaction = $this->resolveTransactionFromWebhook( $body, $gateway );
+		}
+		catch ( \OutOfRangeException $e )
+		{
+			\IPS\Log::log( 'ON_CHARGEBACK_CLOSED: ' . $e->getMessage() . '. Event: ' . $eventId, 'xpaynowcheckout_webhook' );
+			return;
+		}
+
+		/* Extract resolution from body */
+		$resolution = isset( $body['status'] ) ? (string) $body['status'] : '';
+
+		/* Update chargeback metadata with closure info */
+		$extra = $transaction->extra;
+		if ( !\is_array( $extra ) )
+		{
+			$extra = array();
+		}
+		if ( !isset( $extra['xpaynowcheckout_chargeback'] ) OR !\is_array( $extra['xpaynowcheckout_chargeback'] ) )
+		{
+			$extra['xpaynowcheckout_chargeback'] = array();
+		}
+		$extra['xpaynowcheckout_chargeback']['resolution']     = $resolution;
+		$extra['xpaynowcheckout_chargeback']['closed_at']      = \time();
+		$extra['xpaynowcheckout_chargeback']['close_event_id'] = $eventId;
+		$transaction->extra = $extra;
+
+		/* Update transaction status based on resolution */
+		if ( $resolution === 'won' )
+		{
+			$transaction->status = \IPS\nexus\Transaction::STATUS_PAID;
+			$transaction->save();
+
+			/* Re-mark invoice as paid if balance is zero */
+			try
+			{
+				$invoice = $transaction->invoice;
+				if ( $invoice->amountToPay()->amount->isZero() )
+				{
+					$invoice->markPaid();
+				}
+			}
+			catch ( \Exception $e )
+			{
+				\IPS\Log::log( $e, 'xpaynowcheckout_chargeback_closed' );
+			}
+		}
+		elseif ( $resolution === 'lost' )
+		{
+			$transaction->status = \IPS\nexus\Transaction::STATUS_REFUNDED;
+			$transaction->save();
+		}
+		else
+		{
+			/* Unknown resolution — persist metadata only, don't change status */
+			$transaction->save();
+		}
 	}
 
 	/**

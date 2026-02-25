@@ -1,5 +1,37 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-25 - v1.0.8: Phase 2 — Refund & Chargeback
+
+### Refund
+- Implemented `refund()` gateway method: calls `POST /v1/stores/{storeId}/orders/{orderId}/refund`.
+  PayNow only supports full order refunds (no partial). Logs warning if partial amount requested.
+- Implemented `handleRefund()` webhook handler (ON_REFUND): resolves transaction, validates terminal
+  refund status (`completed`/`approved`), stores refund metadata in `t_extra`, sets STATUS_REFUNDED.
+  Non-terminal statuses (`created`/`processing`/`canceled`/`failed`) are logged and skipped.
+
+### Chargeback
+- Implemented `handleChargeback()` webhook handler (ON_CHARGEBACK): resolves transaction, stores
+  chargeback metadata (order_id, amount, status, reason, event_id), sets STATUS_DISPUTED.
+  If `chargeback_ban` enabled (default TRUE), permanently bans member (`temp_ban = -1`) with
+  history log entry. Revokes benefits via `markUnpaid(STATUS_CANCELED)`. Sends admin notification.
+- Implemented `handleChargebackClosed()` webhook handler (ON_CHARGEBACK_CLOSED): resolves
+  transaction, updates chargeback metadata with resolution/closed_at. Won → STATUS_PAID + markPaid()
+  if invoice balance is zero. Lost → STATUS_REFUNDED. Unknown → metadata only, no status change.
+
+### ACP Member Profile Block
+- Implemented `PaynowPaymentSummary` profile block: queries PayNow gateway transactions for disputes
+  and refunds. Shows chargebacks count (warning badge), latest chargeback detail with reason and date,
+  refunds count, ban status, and link to integrity panel. Returns NULL (hidden) when no disputes/refunds.
+
+### Code Quality
+- Extracted `resolveTransactionFromWebhook()` helper in webhook controller: 3-level fallback
+  (metadata → nested checkout metadata → DB gw_id lookup by order_id/checkout_id/id). Refactored
+  `handleOrderCompleted()` and all new handlers to use this shared helper.
+
+### Language
+- Added 3 new lang keys: `xpaynowcheckout_dispute_closed_won`, `xpaynowcheckout_dispute_closed_lost`,
+  `xpaynowcheckout_missing_order_id`.
+
 ## 2026-02-24 - v1.0.7: Fix multi-item checkout slug collision
 
 ### Bug Fix

@@ -6,7 +6,7 @@
 
 | Package version | Long version | Source |
 | --- | --- | --- |
-| `1.0.7` | `10007` | `app-source/data/versions.json` |
+| `1.0.8` | `10008` | `app-source/data/versions.json` |
 
 ## Product Positioning
 
@@ -55,12 +55,13 @@
 - Settlement snapshot persistence in `t_extra` and `i_status_extra` with mismatch detection.
 - Gateway settings: `default_product_id` optional fallback, `checkValidity()` requires only API key + store ID.
 
-### Phase 2 — Refund & Chargeback (TODO)
-- `refund()` — Call PayNow order refund API.
-- `OnRefund` webhook handler.
-- `OnChargeback` + `OnChargebackClosed` handlers.
-- Chargeback ban logic.
-- Member profile block (chargeback/refund counts).
+### Phase 2 — Refund & Chargeback (DONE in v1.0.8)
+- `refund()` — Full order refund via `POST /v1/stores/{storeId}/orders/{orderId}/refund`.
+- `handleRefund()` — ON_REFUND webhook handler with terminal status gating and metadata persistence.
+- `handleChargeback()` — ON_CHARGEBACK handler with auto-ban, benefit revocation, admin notification.
+- `handleChargebackClosed()` — ON_CHARGEBACK_CLOSED handler with won/lost resolution and status restore.
+- `PaynowPaymentSummary` — ACP member profile block showing chargebacks, refunds, ban status.
+- `resolveTransactionFromWebhook()` — Shared 3-level transaction resolution helper.
 
 ### Phase 3 — Monitoring & Resilience (TODO)
 - Integrity panel implementation with health cards, mismatch table, replay status.

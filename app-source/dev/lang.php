@@ -117,11 +117,16 @@ $lang = array(
 'xpaynowcheckout_not_banned'	=> 'Not banned',
 'xpaynowcheckout_view_integrity'	=> 'View integrity panel',
 
+/* Chargeback resolution */
+'xpaynowcheckout_dispute_closed_won'	=> 'Chargeback resolved (won)',
+'xpaynowcheckout_dispute_closed_lost'	=> 'Chargeback resolved (lost)',
+
 /* Error messages */
 'xpaynowcheckout_invalid_settings'	=> 'PayNow Checkout gateway settings are invalid.',
 'xpaynowcheckout_missing_required_settings'	=> 'PayNow Checkout requires an API key, store ID, and default product ID.',
 'xpaynowcheckout_missing_api_credentials'	=> 'API key and store ID are required.',
 'xpaynowcheckout_invalid_api_credentials'	=> 'Could not validate PayNow API credentials. Please check your API key and store ID.',
+'xpaynowcheckout_missing_order_id'	=> 'Cannot refund: no PayNow order ID found on transaction.',
 'xpaynowcheckout_payment_cancelled'	=> 'Payment was cancelled.',
 
 );

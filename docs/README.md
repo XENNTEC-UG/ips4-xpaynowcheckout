@@ -2,9 +2,9 @@
 
 ## Current Status
 
-`xpaynowcheckout` v1.0.7 — Phase 1 (core checkout flow) complete. Next: Phase 2 (refund & chargeback).
+`xpaynowcheckout` v1.0.8 — Phase 1 (core checkout) + Phase 2 (refund & chargeback) complete. Next: Phase 3 (monitoring & resilience).
 
-**Done** (v1.0.0–v1.0.7):
+**Done** (v1.0.0–v1.0.8):
 - App scaffold with all config files, Application.php, schema.json.
 - Gateway class with settings form. Webhook controller with base64 HMAC-SHA256 signature verification, multi-secret iteration, forensic logging.
 - 6 hooks: gateway registration, coupon naming, invoice view, settlement themes (x2), member profile.
@@ -16,9 +16,15 @@
 - `getPaynowCustomer()` — platform-identity customer creation + cm_profiles caching.
 - `handleOrderCompleted()` — transaction approval + settlement snapshot + mismatch detection.
 - `checkValidity()` — settings enforcement (API key + store ID required, product ID optional).
+- `refund()` — full order refund via PayNow API.
+- `handleRefund()` — ON_REFUND webhook handler with terminal status gating.
+- `handleChargeback()` — ON_CHARGEBACK handler with auto-ban, benefit revocation, admin notification.
+- `handleChargebackClosed()` — ON_CHARGEBACK_CLOSED handler with won/lost resolution.
+- `PaynowPaymentSummary` — ACP member profile block (chargebacks, refunds, ban status).
+- `resolveTransactionFromWebhook()` — shared 3-level transaction resolution helper.
 
-**Next** (Phase 2 — Refund & Chargeback):
-- `refund()`, `OnRefund` handler, `OnChargeback` + `OnChargebackClosed` handlers, chargeback ban logic.
+**Next** (Phase 3 — Monitoring & Resilience):
+- Integrity panel implementation, forensics viewer, webhook replay, admin notifications.
 
 ## Source Paths
 
