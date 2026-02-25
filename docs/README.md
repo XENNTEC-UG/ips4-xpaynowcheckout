@@ -1,38 +1,16 @@
 # X PayNow Checkout
 
-## Current Status
+PayNow.gg payment gateway for IPS Nexus. Provides hosted checkout redirect, webhook-driven reconciliation (base64 HMAC-SHA256 signature verification with multi-secret iteration), refund processing, chargeback handling with auto-ban and benefit revocation, and full operational tooling (integrity panel, forensics viewer, webhook replay). Uses stateless inline products per transaction (no mapping table). Sibling architecture to `xstripecheckout` (Stripe) and `xpolarcheckout` (Polar).
 
-`xpaynowcheckout` v1.0.10 — Phase 1 (core checkout) + Phase 2 (refund & chargeback) + Phase 3 (monitoring & resilience) + Phase 4 (invoice settlement UX) + IPS coupon forwarding complete. Stripe UX parity achieved. Next: Phase 5 (subscription support, deferred).
+Phases 1–4 complete (core checkout, refund & chargeback, monitoring & resilience, invoice settlement UX, IPS coupon forwarding). Stripe UX parity achieved. Phase 5 (subscription support) deferred.
 
-**Done** (v1.0.0–v1.0.8):
-- App scaffold with all config files, Application.php, schema.json.
-- Gateway class with settings form. Webhook controller with base64 HMAC-SHA256 signature verification, multi-secret iteration, forensic logging.
-- 6 hooks: gateway registration, coupon naming, invoice view, settlement themes (x2), member profile.
-- ACP modules (integrity + forensics), tasks, extensions, templates — all stubbed with TODO markers.
-- Language file with 100+ keys. DB table `pnc_webhook_forensics`.
-- `auth()` — hosted checkout session creation + redirect.
-- `buildPaynowLineItems()` — dynamic inline products per invoice item (name, price, qty, unique slug). Multi-item checkout verified.
-- `testSettings()` — API validation + multi-secret webhook subscription creation.
-- `getPaynowCustomer()` — platform-identity customer creation + cm_profiles caching.
-- `handleOrderCompleted()` — transaction approval + settlement snapshot + mismatch detection.
-- `checkValidity()` — settings enforcement (API key + store ID required, product ID optional).
-- `refund()` — full order refund via PayNow API.
-- `handleRefund()` — ON_REFUND webhook handler with terminal status gating.
-- `handleChargeback()` — ON_CHARGEBACK handler with auto-ban, benefit revocation, admin notification.
-- `handleChargebackClosed()` — ON_CHARGEBACK_CLOSED handler with won/lost resolution.
-- `PaynowPaymentSummary` — ACP member profile block (chargebacks, refunds, ban status).
-- `resolveTransactionFromWebhook()` — shared 3-level transaction resolution helper.
+## Read Order
 
-**Done** (v1.0.9):
-- Integrity panel with 4 status cards, replay buttons, error/mismatch tables.
-- Webhook replay task (fetch delivery history, deduplicate, re-sign, forward).
-- Integrity monitor task with AdminNotification send/clear/selfDismiss.
-- Invoice view hook with two-column settlement layout (charge summary + payment refs).
-- Client settle + print settle theme hooks.
-- 17 new lang keys.
-
-**Next** (Phase 5 — Subscription Support, deferred):
-- `OnSubscriptionActivated` / `OnSubscriptionRenewed` / `OnSubscriptionCanceled` handlers.
+1. [GitHub Issues](https://github.com/XENNTEC-UG/ips4-xpaynowcheckout/issues) — open work items
+2. [ARCHITECTURE.md](ARCHITECTURE.md) — architecture, PayNow API contracts, data model
+3. [FEATURES.MD](FEATURES.MD) — capability overview
+4. [FLOW.md](FLOW.md) — runtime flows and end-to-end diagrams
+5. [TEST_RUNTIME.md](TEST_RUNTIME.md) — manual verification checklist
 
 ## Source Paths
 
@@ -43,19 +21,14 @@
 - Forensics schema: `app-source/data/schema.json` (`pnc_webhook_forensics`)
 - Language file: `app-source/dev/lang.php`
 
-## Doc Read Order
+## Source of Truth
 
-1. `docs/ARCHITECTURE.md` — Full architecture reference including PayNow API details
-2. `docs/FEATURES.MD` — Feature pillars and capability status
-3. `docs/FLOW.md` — Runtime entry points and end-to-end flow diagrams
-4. `docs/CHANGELOG.md` — Version history
-5. `docs/TEST_RUNTIME.md` — Runtime verification checklist
+- App code: `ips-dev-source/apps/xpaynowcheckout/app-source/`
+- Runtime copy: `data/ips/applications/xpaynowcheckout/` (synced via `ips-dev-sync.ps1`)
 
-## Working Rules
+## Global Context
 
-- Keep active execution tracking in GitHub Issues on `XENNTEC-UG/ips4-xpaynowcheckout`.
-- Log completed milestones in `docs/CHANGELOG.md` with date and version.
-- Update this file if architecture entry points or status materially change.
-- Follow IPS4 coding standards in `IPS4_DEV_GUIDE.md` for all code changes.
-- Always import-sync before testing (`powershell -ExecutionPolicy Bypass -File .\scripts\ips-dev-sync.ps1 -Mode import`).
-- Sibling references: `xstripecheckout` (Stripe gateway) and `xpolarcheckout` (Polar gateway) follow the same architectural patterns.
+- [../../../../README.md](../../../../README.md)
+- [../../../../IPS4_DEV_GUIDE.md](../../../../IPS4_DEV_GUIDE.md)
+- [../../../../AI_TOOLS.md](../../../../AI_TOOLS.md)
+- [../../../../CLAUDE.md](../../../../CLAUDE.md)

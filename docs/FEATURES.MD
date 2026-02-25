@@ -2,11 +2,11 @@
 
 > PayNow.gg payment gateway for IPS Nexus focused on hosted checkout, webhook reconciliation, and operational visibility.
 
-## Version Snapshot
+## Current Version
 
-| Package version | Long version | Source |
+| Version | Long Version | Source |
 | --- | --- | --- |
-| `1.0.10` | `10010` | `app-source/data/versions.json` |
+| `1.0.11` | `10011` | `app-source/data/application.json` |
 
 ## Product Positioning
 
