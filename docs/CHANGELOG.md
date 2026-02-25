@@ -1,5 +1,22 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-25 - v1.0.11: Integrity Panel — Error Table Fix + Delete Button
+
+### Bug Fix
+- Separated error COUNT filter (ack-filtered, for status card) from error TABLE filter (plain 24h,
+  so acknowledged errors remain visible in the table). Previously, acknowledging errors caused them
+  to disappear from the table because both queries used the same ack-filtered timestamp.
+
+### Feature
+- Added "Delete Errors" button on the integrity panel webhook errors section. Permanently deletes
+  all `xpaynowcheckout_webhook` and `xpaynowcheckout_snapshot` entries from `core_log`, resets the
+  ack timestamp, and clears the admin notification. Button appears when any errors exist in the table,
+  uses `data-confirm` for safety.
+- "Acknowledge Errors" button now only appears when unacknowledged errors exist (count > 0).
+
+### Language
+- Added 2 new lang keys: `pnc_integrity_delete_errors`, `pnc_integrity_delete_errors_done`.
+
 ## 2026-02-25 - v1.0.10: IPS Coupon Forwarding + Template Cleanup
 
 ### Feature

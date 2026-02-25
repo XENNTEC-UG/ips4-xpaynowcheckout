@@ -152,11 +152,18 @@ class _integrity extends \IPS\Dispatcher\Controller
 		$h .= '<div class="pnc-section">';
 		$h .= '<div class="pnc-section-title" style="display:flex;align-items:center;justify-content:space-between;">';
 		$h .= '<span>Recent Webhook Errors</span>';
+		$h .= '<span style="display:flex;gap:8px;">';
 		if ( $errorCount > 0 )
 		{
 			$ackUrl = \IPS\Http\Url::internal( 'app=xpaynowcheckout&module=monitoring&controller=integrity&do=ackErrors', 'admin' )->csrf();
 			$h .= '<a href="' . $this->escape( (string) $ackUrl ) . '" class="ipsButton ipsButton_alternate ipsButton_verySmall">' . $this->escape( \IPS\Member::loggedIn()->language()->addToStack( 'pnc_integrity_ack_errors' ) ) . '</a>';
 		}
+		if ( \count( $stats['recent_webhook_errors'] ) > 0 )
+		{
+			$deleteUrl = \IPS\Http\Url::internal( 'app=xpaynowcheckout&module=monitoring&controller=integrity&do=deleteErrors', 'admin' )->csrf();
+			$h .= '<a href="' . $this->escape( (string) $deleteUrl ) . '" class="ipsButton ipsButton_negative ipsButton_verySmall" data-confirm>' . $this->escape( \IPS\Member::loggedIn()->language()->addToStack( 'pnc_integrity_delete_errors' ) ) . '</a>';
+		}
+		$h .= '</span>';
 		$h .= '</div>';
 		$h .= $this->renderWebhookErrorTable( $stats['recent_webhook_errors'] );
 		$h .= '</div>';
@@ -245,6 +252,25 @@ class _integrity extends \IPS\Dispatcher\Controller
 	}
 
 	/**
+	 * Delete all webhook/snapshot errors from system log.
+	 *
+	 * @return	void
+	 */
+	protected function deleteErrors()
+	{
+		\IPS\Session::i()->csrfCheck();
+
+		\IPS\Db::i()->delete( 'core_log', array( 'category=? OR category=?', 'xpaynowcheckout_webhook', 'xpaynowcheckout_snapshot' ) );
+		\IPS\Data\Store::i()->pnc_webhook_errors_ack_at = \time();
+		\IPS\core\AdminNotification::remove( 'xpaynowcheckout', 'PaymentIntegrity', 'webhook_errors' );
+
+		\IPS\Output::i()->redirect(
+			\IPS\Http\Url::internal( 'app=xpaynowcheckout&module=monitoring&controller=integrity', 'admin' ),
+			'pnc_integrity_delete_errors_done'
+		);
+	}
+
+	/**
 	 * Build data model for the panel.
 	 *
 	 * @return	array
@@ -307,16 +333,18 @@ class _integrity extends \IPS\Dispatcher\Controller
 
 		try
 		{
+			/* Count uses ack-filtered timestamp (for status card badge) */
 			$stats['webhook_error_count_24h'] = (int) \IPS\Db::i()->select(
 				'COUNT(*)',
 				'core_log',
 				array( '( category=? OR category=? ) AND time>?', 'xpaynowcheckout_webhook', 'xpaynowcheckout_snapshot', $errorsSince )
 			)->first();
 
+			/* Table uses plain 24h window so acknowledged errors remain visible */
 			foreach ( \IPS\Db::i()->select(
 				'time,category,message',
 				'core_log',
-				array( '( category=? OR category=? ) AND time>?', 'xpaynowcheckout_webhook', 'xpaynowcheckout_snapshot', $errorsSince ),
+				array( '( category=? OR category=? ) AND time>?', 'xpaynowcheckout_webhook', 'xpaynowcheckout_snapshot', $dayAgo ),
 				'id DESC',
 				10
 			) as $row )

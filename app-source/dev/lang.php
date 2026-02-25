@@ -112,6 +112,8 @@ $lang = array(
 /* Acknowledge + alerts */
 'pnc_integrity_ack_errors'	=> 'Acknowledge Errors',
 'pnc_integrity_ack_errors_done'	=> 'Webhook errors acknowledged.',
+'pnc_integrity_delete_errors'	=> 'Delete Errors',
+'pnc_integrity_delete_errors_done'	=> 'Webhook errors deleted from system log.',
 'acp_notification_PaymentIntegrity'	=> 'PayNow Payment Integrity',
 'pnc_alert_webhook_errors_title'	=> 'PayNow Webhook Errors Detected',
 'pnc_alert_replay_stale_title'	=> 'Webhook Replay Task Stale',
