@@ -6,7 +6,7 @@
 
 | Package version | Long version | Source |
 | --- | --- | --- |
-| `1.0.9` | `10009` | `app-source/data/versions.json` |
+| `1.0.10` | `10010` | `app-source/data/versions.json` |
 
 ## Product Positioning
 
@@ -80,8 +80,8 @@
   and Payment & References (order_id, pretty_id, billing info, timestamps).
 - Client settle theme hook: `.ipsBox--child` replace with PayNow total, provider label, pretty_id.
 - Print settle theme hook: `.ipsPrint > table` add_after with charge summary + payment refs tables.
-- IPS coupon forwarding — deferred (PayNow coupon API not yet available).
-- Currency validation in `checkValidity()` — deferred.
+- IPS coupon forwarding — DONE (v1.0.10). `calculateInvoiceDiscount()` + `createOneTimePaynowCoupon()` + `auth()` integration with math verification and fallback.
+- Currency validation in `checkValidity()` — N/A (PayNow API validates currency at runtime; current `checkValidity()` is adequate).
 
 ### Phase 5 — Subscription Support (Future)
 - `OnSubscriptionActivated` / `OnSubscriptionRenewed` / `OnSubscriptionCanceled` handlers.

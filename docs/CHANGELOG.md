@@ -1,5 +1,20 @@
 # X PayNow Checkout App - Changelog
 
+## 2026-02-25 - v1.0.10: IPS Coupon Forwarding + Template Cleanup
+
+### Feature
+- **IPS coupon forwarding**: `calculateInvoiceDiscount()` sums negative-priced invoice items
+  (IPS Nexus coupon/discount encoding). `createOneTimePaynowCoupon()` creates a one-time
+  fixed-amount coupon via `POST /stores/{storeId}/coupons`. Attached to checkout session as
+  `coupon_id`. Math verification ensures line items minus discount equals transaction amount.
+  Falls back to consolidated single-line checkout if coupon creation fails or math mismatches.
+- New lang key: `xpaynowcheckout_coupon_discount`.
+
+### Cleanup
+- Removed stale TODO markers from all 4 template stub files (integrity, paymentSummary,
+  settlement, printSettle). Templates are minimal stubs; rendering is handled by hooks and
+  extensions.
+
 ## 2026-02-25 - v1.0.9: Phase 3 — Monitoring & Resilience + Phase 4 — Invoice Settlement UX
 
 ### Monitoring & Resilience (Phase 3)

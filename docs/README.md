@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`xpaynowcheckout` v1.0.9 — Phase 1 (core checkout) + Phase 2 (refund & chargeback) + Phase 3 (monitoring & resilience) + Phase 4 (invoice settlement UX) complete. Next: Phase 5 (subscription support, deferred).
+`xpaynowcheckout` v1.0.10 — Phase 1 (core checkout) + Phase 2 (refund & chargeback) + Phase 3 (monitoring & resilience) + Phase 4 (invoice settlement UX) + IPS coupon forwarding complete. Stripe UX parity achieved. Next: Phase 5 (subscription support, deferred).
 
 **Done** (v1.0.0–v1.0.8):
 - App scaffold with all config files, Application.php, schema.json.

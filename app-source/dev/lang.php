@@ -71,6 +71,9 @@ $lang = array(
 'xpaynowcheckout_provider_charged_label'	=> 'Charged via PayNow',
 'xpaynowcheckout_ips_invoice_total_label'	=> 'IPS invoice total',
 
+/* Coupon forwarding */
+'xpaynowcheckout_coupon_discount'	=> 'Discount',
+
 /* Refund reasons */
 'xpaynowcheckout_reason_customer_request'	=> 'Requested by customer',
 'xpaynowcheckout_reason_duplicate'	=> 'Duplicate payment',

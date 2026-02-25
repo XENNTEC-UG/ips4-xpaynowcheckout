@@ -93,6 +93,82 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		/* Build checkout lines from invoice items using inline_product (Stripe-style) */
 		$lines = $this->buildPaynowLineItems( $transaction );
 
+		/* --- Coupon/discount forwarding to PayNow --- */
+		$discountInfo = $this->calculateInvoiceDiscount( $transaction );
+		$couponId = NULL;
+
+		if ( $discountInfo['amount_minor'] > 0 )
+		{
+			/* Verify math: positive line items total minus discount must equal transaction amount */
+			$lineItemsTotal = 0;
+			foreach ( $lines as $line )
+			{
+				$linePrice = isset( $line['inline_product']['price'] ) ? (int) $line['inline_product']['price'] : 0;
+				$lineQty = isset( $line['quantity'] ) ? (int) $line['quantity'] : 1;
+				$lineItemsTotal += $linePrice * $lineQty;
+			}
+			$transactionMinor = $this->moneyToMinorUnit( $transaction->amount );
+
+			if ( ( $lineItemsTotal - $discountInfo['amount_minor'] ) === $transactionMinor )
+			{
+				try
+				{
+					$couponId = $this->createOneTimePaynowCoupon( $discountInfo, $transaction->amount->currency, $settings );
+				}
+				catch ( \Exception $e )
+				{
+					\IPS\Log::log( $e, 'xpaynowcheckout_coupon' );
+					/* Fallback: consolidate to single line with transaction amount */
+					$invoiceLabel = \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_payment_invoice', FALSE, array( 'sprintf' => array( $transaction->invoice->id ) ) );
+					\IPS\Member::loggedIn()->language()->parseOutputForDisplay( $invoiceLabel );
+					$fallbackDescription = $invoiceLabel;
+					if ( \mb_strlen( $fallbackDescription ) < 25 )
+					{
+						$fallbackDescription = \str_pad( $fallbackDescription, 25, '.' );
+					}
+
+					$lines = array( array(
+						'inline_product' => array(
+							'name'                    => $invoiceLabel,
+							'slug'                    => 'ips-t' . $transaction->id . '-consolidated',
+							'description'             => $fallbackDescription,
+							'price'                   => $transactionMinor,
+							'allow_one_time_purchase' => TRUE,
+						),
+						'quantity'     => 1,
+						'subscription' => FALSE,
+					) );
+				}
+			}
+			else
+			{
+				/* Math mismatch safety: consolidate to transaction amount */
+				\IPS\Log::log(
+					'Coupon math mismatch: lineTotal=' . $lineItemsTotal . ' discount=' . $discountInfo['amount_minor'] . ' txn=' . $transactionMinor,
+					'xpaynowcheckout_coupon'
+				);
+				$invoiceLabel = \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_payment_invoice', FALSE, array( 'sprintf' => array( $transaction->invoice->id ) ) );
+				\IPS\Member::loggedIn()->language()->parseOutputForDisplay( $invoiceLabel );
+				$fallbackDescription = $invoiceLabel;
+				if ( \mb_strlen( $fallbackDescription ) < 25 )
+				{
+					$fallbackDescription = \str_pad( $fallbackDescription, 25, '.' );
+				}
+
+				$lines = array( array(
+					'inline_product' => array(
+						'name'                    => $invoiceLabel,
+						'slug'                    => 'ips-t' . $transaction->id . '-consolidated',
+						'description'             => $fallbackDescription,
+						'price'                   => $transactionMinor,
+						'allow_one_time_purchase' => TRUE,
+					),
+					'quantity'     => 1,
+					'subscription' => FALSE,
+				) );
+			}
+		}
+
 		/* Build return/cancel URLs */
 		$returnUrl = !empty( $settings['return_url'] )
 			? (string) $settings['return_url']
@@ -115,6 +191,11 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 				'gateway_id'         => (string) (int) $this->id,
 			),
 		);
+
+		if ( $couponId !== NULL )
+		{
+			$checkoutBody['coupon_id'] = $couponId;
+		}
 
 		try
 		{
@@ -516,6 +597,95 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		}
 
 		return $lineItems;
+	}
+
+	/**
+	 * Calculate total invoice discount from negative-amount items (coupons, gateway discounts).
+	 *
+	 * IPS Nexus encodes discounts/coupons as invoice items with negative prices.
+	 * This method sums the absolute values of all negative-priced items.
+	 *
+	 * @param	\IPS\nexus\Transaction	$transaction
+	 * @return	array	array( 'amount_minor' => int, 'names' => array )
+	 */
+	protected function calculateInvoiceDiscount( \IPS\nexus\Transaction $transaction )
+	{
+		$discountMinor = 0;
+		$discountNames = array();
+
+		foreach ( $transaction->invoice->items as $invoiceItem )
+		{
+			if ( !isset( $invoiceItem->price ) || !( $invoiceItem->price instanceof \IPS\nexus\Money ) )
+			{
+				continue;
+			}
+
+			$unitAmount = $this->moneyToMinorUnit( $invoiceItem->price );
+			if ( $unitAmount >= 0 )
+			{
+				continue;
+			}
+
+			$quantity = isset( $invoiceItem->quantity ) ? (int) $invoiceItem->quantity : 1;
+			if ( $quantity < 1 )
+			{
+				$quantity = 1;
+			}
+
+			$discountMinor += \abs( $unitAmount ) * $quantity;
+
+			$itemName = isset( $invoiceItem->name ) ? \trim( (string) $invoiceItem->name ) : '';
+			if ( $itemName !== '' )
+			{
+				$discountNames[] = $itemName;
+			}
+		}
+
+		return array( 'amount_minor' => $discountMinor, 'names' => $discountNames );
+	}
+
+	/**
+	 * Create a one-time PayNow coupon from IPS invoice discount data.
+	 *
+	 * @param	array	$discountInfo	From calculateInvoiceDiscount()
+	 * @param	string	$currency		Transaction currency code
+	 * @param	array	$settings		Gateway settings
+	 * @return	string	PayNow coupon ID
+	 * @throws	\RuntimeException
+	 */
+	protected function createOneTimePaynowCoupon( array $discountInfo, $currency, array $settings )
+	{
+		$couponName = \count( $discountInfo['names'] )
+			? \implode( ', ', $discountInfo['names'] )
+			: \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_coupon_discount' );
+
+		$couponName = \strip_tags( (string) $couponName );
+		$couponName = \trim( (string) \preg_replace( '/\s+/', ' ', $couponName ) );
+		if ( $couponName === '' )
+		{
+			$couponName = \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_coupon_discount' );
+		}
+		if ( \mb_strlen( $couponName ) > 100 )
+		{
+			$couponName = \rtrim( \mb_substr( $couponName, 0, 100 ) );
+		}
+
+		$body = array(
+			'name'     => $couponName,
+			'type'     => 'amount',
+			'amount'   => $discountInfo['amount_minor'],
+			'currency' => \mb_strtolower( (string) $currency ),
+			'duration' => 'once',
+		);
+
+		$response = static::apiRequest( 'post', '/stores/' . $settings['store_id'] . '/coupons', $settings, $body );
+
+		if ( !isset( $response['id'] ) || !\is_string( $response['id'] ) )
+		{
+			throw new \RuntimeException( 'Failed to create PayNow coupon for invoice discount.' );
+		}
+
+		return (string) $response['id'];
 	}
 
 	/**

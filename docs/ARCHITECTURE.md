@@ -474,27 +474,27 @@ Legend: DONE = implemented and verified, TODO = not yet started, STUB = scaffold
 - [x] Settlement snapshot persistence in `t_extra` and `i_status_extra`
 - [x] Gateway settings form — `default_product_id` field, `checkValidity()` enforcement
 
-### Phase 2 — Refund & Chargeback (TODO)
-- [ ] `refund()` — Call PayNow order-level refund API
-- [ ] `OnRefund` webhook handler
-- [ ] `OnChargeback` + `OnChargebackClosed` handlers
-- [ ] Chargeback ban logic
-- [ ] Member profile block (chargeback/refund counts)
+### Phase 2 — Refund & Chargeback (DONE in v1.0.8)
+- [x] `refund()` — Call PayNow order-level refund API
+- [x] `OnRefund` webhook handler
+- [x] `OnChargeback` + `OnChargebackClosed` handlers
+- [x] Chargeback ban logic
+- [x] Member profile block (chargeback/refund counts)
 
-### Phase 3 — Monitoring & Resilience (TODO)
-- [ ] Integrity panel — Webhook health cards, mismatch table, replay status
-- [ ] Forensics viewer — Table\Db with full filter/delete
-- [ ] `pncWebhookReplay` task — Fetch history from PayNow API, resend failed
-- [ ] `pncIntegrityMonitor` task — Alert conditions, forensics prune
-- [ ] AdminNotification alert conditions
-- [ ] Error acknowledge button on integrity panel
+### Phase 3 — Monitoring & Resilience (DONE in v1.0.9)
+- [x] Integrity panel — Webhook health cards, mismatch table, replay status
+- [x] Forensics viewer — Table\Db with full filter/delete
+- [x] `pncWebhookReplay` task — Fetch history from PayNow API, resend failed
+- [x] `pncIntegrityMonitor` task — Alert conditions, forensics prune
+- [x] AdminNotification alert conditions
+- [x] Error acknowledge button on integrity panel
 
-### Phase 4 — Polish (TODO)
-- [ ] Invoice view settlement card (template rendering with full data)
-- [ ] Print invoice settlement card
-- [ ] IPS coupon forwarding (create PayNow coupon for IPS discounts)
-- [ ] `gatewayUrl()` — Link to PayNow dashboard
-- [ ] `checkValidity()` — Currency validation
+### Phase 4 — Polish (DONE in v1.0.9–v1.0.10)
+- [x] Invoice view settlement card (template rendering with full data)
+- [x] Print invoice settlement card
+- [x] IPS coupon forwarding (create PayNow coupon for IPS discounts) — v1.0.10
+- [x] `gatewayUrl()` — Link to PayNow dashboard
+- [x] `checkValidity()` — Currency validation (N/A; PayNow API validates at runtime)
 
 ### Phase 5 — Subscription Support (Future)
 - [ ] `OnSubscriptionActivated` / `OnSubscriptionRenewed` / `OnSubscriptionCanceled` handlers
@@ -588,20 +588,21 @@ Audit performed against PayNow.gg API docs and sibling gateway implementations (
 2. **Platform-identity customer model** (MEDIUM): PayNow customers use gaming platform IDs, not email. (Integrated into section 2.8.)
 3. **Auth header prefix** (COSMETIC): `apikey` vs `APIKey` — case-insensitive, no change needed.
 
-### 15.5 Stripe-Parity Requirements (TODO)
+### 15.5 Stripe-Parity Requirements (DONE)
 
-To match xstripecheckout behavior across all gateways:
+Stripe UX parity achieved across all areas:
 
 | Area | Requirement | Status |
 |------|-------------|--------|
-| Invoice view | Hook on `view()` rendering path | DONE |
-| Invoice view | Two-column layout (Order Details + Charge Summary) | TODO |
-| Invoice view | Payment & References block | TODO |
-| Settlement | Subtotal/discount/tax/total display | TODO |
-| Settlement | Mismatch warning + tax-explains-difference | TODO |
-| Settlement | Provider refs + invoice/receipt links | TODO |
-| Print invoice | Mirror front-end settlement data | TODO |
-| Monitoring | Integrity cards, mismatch table, replay status | TODO |
-| Monitoring | Replay controls with dry-run | TODO |
-| Hooks | `couponNameHook` | DONE |
+| Invoice view | Hook on `view()` rendering path | DONE (v1.0.1) |
+| Invoice view | Two-column layout (Order Details + Charge Summary) | DONE (v1.0.9) |
+| Invoice view | Payment & References block | DONE (v1.0.9) |
+| Settlement | Subtotal/discount/tax/total display | DONE (v1.0.9) |
+| Settlement | Mismatch warning + tax-explains-difference | DONE (v1.0.9) |
+| Settlement | Provider refs + invoice/receipt links | DONE (v1.0.9; N/A for receipt URLs — PayNow has no customer receipt) |
+| Print invoice | Mirror front-end settlement data | DONE (v1.0.9) |
+| Monitoring | Integrity cards, mismatch table, replay status | DONE (v1.0.9) |
+| Monitoring | Replay controls with dry-run | DONE (v1.0.9) |
+| Coupon | IPS coupon forwarding | DONE (v1.0.10) |
+| Hooks | `couponNameHook` | DONE (v1.0.1) |
 | Hooks | `code_loadJs` (optional, only if PayNow JS SDK used) | N/A |
