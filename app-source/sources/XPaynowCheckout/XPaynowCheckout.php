@@ -771,7 +771,7 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	{
 		$stats = array(
 			'webhook_error_count_24h' => 0,
-			'replay_recent_run'       => FALSE,
+			'replay_recent_run'       => NULL,
 			'mismatch_count_30d'      => 0,
 			'replay_config_lookback'  => 3600,
 		);
@@ -801,7 +801,7 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		{
 			$replayState = \IPS\Data\Store::i()->xpaynowcheckout_webhook_replay_state;
 			$lastRunAt = ( isset( $replayState['last_run_at'] ) AND \is_numeric( $replayState['last_run_at'] ) ) ? (int) $replayState['last_run_at'] : NULL;
-			$stats['replay_recent_run'] = ( $lastRunAt !== NULL AND ( \time() - $lastRunAt ) <= $stats['replay_config_lookback'] );
+			$stats['replay_recent_run'] = ( $lastRunAt !== NULL ) ? ( ( \time() - $lastRunAt ) <= $stats['replay_config_lookback'] ) : NULL;
 		}
 
 		/* DB queries */
