@@ -1,6 +1,6 @@
 # X PayNow Checkout — Architecture Document
 
-> **Version**: 1.0.2
+> **Version**: 1.0.12
 > **App directory**: `xpaynowcheckout`
 > **Task prefix**: `pnc`
 > **DB table prefix**: `pnc_`
