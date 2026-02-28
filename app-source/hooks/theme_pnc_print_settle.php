@@ -31,14 +31,14 @@ public static function hookData(): array {
 			{{if !empty( $pncSnapshot[ \'discount_minor\' ] ) AND (int) $pncSnapshot[ \'discount_minor\' ] > 0}}
 				<tr>
 					<td><strong>{lang="xpaynowcheckout_settle_discount"}</strong></td>
-					<td style=\'color: #28a745;\'>-{{if !empty( $pncSnapshot[ \'discount_display\' ] )}}{$pncSnapshot[ \'discount_display\' ]}{{else}}{{$pnc_discountDisplay = \strtoupper( $pncSnapshot[ \'currency\' ] ) . \' \' . \number_format( (int) $pncSnapshot[ \'discount_minor\' ] / 100, 2 );}}{$pnc_discountDisplay}{{endif}}</td>
+					<td style=\'color: #22c55e;\'>-{{if !empty( $pncSnapshot[ \'discount_display\' ] )}}{$pncSnapshot[ \'discount_display\' ]}{{else}}{{$pnc_discountDisplay = \strtoupper( $pncSnapshot[ \'currency\' ] ) . \' \' . \number_format( (int) $pncSnapshot[ \'discount_minor\' ] / 100, 2 );}}{$pnc_discountDisplay}{{endif}}</td>
 				</tr>
 			{{endif}}
 			<tr>
 				<td><strong>{lang="xpaynowcheckout_settle_tax"}</strong></td>
 				<td>{{if !empty( $pncSnapshot[ \'tax_display\' ] )}}{$pncSnapshot[ \'tax_display\' ]}{{else}}-{{endif}}</td>
 			</tr>
-			<tr style=\'border-top: 2px solid #333;\'>
+			<tr style=\'border-top: 2px solid rgba(128,128,128,0.3);\'>
 				<td><strong>{lang="xpaynowcheckout_settle_total_charged"}</strong></td>
 				<td><strong>{{if !empty( $pncSnapshot[ \'total_display\' ] )}}{$pncSnapshot[ \'total_display\' ]}{{else}}-{{endif}}</strong></td>
 			</tr>

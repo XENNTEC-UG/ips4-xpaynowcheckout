@@ -136,7 +136,7 @@ class _integrity extends \IPS\Dispatcher\Controller
 		$h .= '<div class="pnc-actions">';
 		$h .= '<a href="' . $this->escape( (string) $replayUrl ) . '" class="ipsButton ipsButton_primary ipsButton_verySmall">' . $this->escape( \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_integrity_replay_now' ) ) . '</a>';
 		$h .= '<a href="' . $this->escape( (string) $dryRunUrl ) . '" class="ipsButton ipsButton_alternate ipsButton_verySmall">' . $this->escape( \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_integrity_replay_dry_run' ) ) . '</a>';
-		$h .= '<span style="font-size:12px;opacity:0.5;">Runs automatically every 15 minutes via task scheduler</span>';
+		$h .= '<span class="ipsType_light ipsType_small">Runs automatically every 15 minutes via task scheduler</span>';
 		$h .= '</div>';
 
 		$h .= '<table class="pnc-table">';

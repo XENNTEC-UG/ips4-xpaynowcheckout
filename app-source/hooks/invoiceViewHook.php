@@ -89,7 +89,7 @@ class xpaynowcheckout_hook_invoiceViewHook extends _HOOK_CLASS_
 
 			$html .= "<li class='ipsDataItem'>";
 			$html .= "<div class='ipsDataItem_main'>" . $lang->addToStack( 'xpaynowcheckout_settle_discount' ) . "</div>";
-			$html .= "<div class='ipsDataItem_generic ipsType_right cNexusPrice' style='white-space:nowrap;color:#28a745;'>-{$discountDisplay}</div>";
+			$html .= "<div class='ipsDataItem_generic ipsType_right cNexusPrice' style='white-space:nowrap;color:#22c55e;'>-{$discountDisplay}</div>";
 			$html .= "</li>";
 
 			/* Net subtotal */
@@ -112,7 +112,7 @@ class xpaynowcheckout_hook_invoiceViewHook extends _HOOK_CLASS_
 
 		/* Total charged with divider */
 		$totalDisplay = !empty( $snapshot['total_display'] ) ? htmlspecialchars( $snapshot['total_display'], ENT_QUOTES | ENT_DISALLOWED, 'UTF-8', FALSE ) : '-';
-		$html .= "<div class='ipsSpacer_top ipsSpacer_half' style='border-top: 2px solid #333; padding-top: 8px;'>";
+		$html .= "<div class='ipsSpacer_top ipsSpacer_half' style='border-top: 2px solid rgba(128,128,128,0.3); padding-top: 8px;'>";
 		$html .= "<ul class='ipsDataList ipsDataList_reducedSpacing'>";
 		$html .= "<li class='ipsDataItem'>";
 		$html .= "<div class='ipsDataItem_main'><strong>" . $lang->addToStack( 'xpaynowcheckout_settle_total_charged' ) . "</strong></div>";
