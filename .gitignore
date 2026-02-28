@@ -1,0 +1,8 @@
+# Dependencies and caches
+.claude/
+.auto-claude/
+
+# Releases — only track current app export tars
+releases/*
+!releases/.gitkeep
+!releases/X PayNow Checkout *.tar

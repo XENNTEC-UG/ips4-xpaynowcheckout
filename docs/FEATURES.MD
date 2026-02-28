@@ -6,7 +6,7 @@
 
 | Version | Long Version | Source |
 | --- | --- | --- |
-| `1.0.14` | `10014` | `app-source/data/application.json` |
+| `1.0.15` | `10015` | `app-source/data/application.json` |
 
 ## Product Positioning
 
@@ -26,6 +26,7 @@
 | Rich invoice view | Settlement display with charge summary, payment refs, status badges | Customer-facing transparency matching Stripe-level detail |
 | IPS coupon forwarding | Forward IPS coupons as PayNow one-time coupons | Proper discount breakdown on hosted checkout |
 | Multi-gateway payment support | PayNow aggregates Stripe, PayPal, crypto, and regional methods | Broader customer payment coverage via single integration |
+| **Unified XENNTEC ACP tab** | All XENNTEC apps under a single collapsible accordion sidebar tab with per-app separators and persisted state | Clean ACP navigation without per-app tab clutter |
 
 ## Capability Status
 
