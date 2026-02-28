@@ -77,10 +77,6 @@ class _integrity extends \IPS\Dispatcher\Controller
 			.pnc-table th { text-align: left; padding: 10px 12px; background: rgba(128,128,128,0.06); border-bottom: 2px solid rgba(128,128,128,0.15); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.6; }
 			.pnc-table td { padding: 10px 12px; border-bottom: 1px solid rgba(128,128,128,0.08); }
 			.pnc-table tr:hover td { background: rgba(128,128,128,0.04); }
-			.pnc-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-			.pnc-tag--ok { background: rgba(34,197,94,0.15); color: #22c55e; }
-			.pnc-tag--err { background: rgba(239,68,68,0.15); color: #ef4444; }
-			.pnc-tag--warn { background: rgba(245,158,11,0.15); color: #d97706; }
 			.pnc-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 		</style>';
 
@@ -90,21 +86,21 @@ class _integrity extends \IPS\Dispatcher\Controller
 		/* Webhook config */
 		$webhookClass = $stats['gateway_webhook_configured'] ? 'pnc-card--ok' : 'pnc-card--err';
 		$webhookLabel = $stats['gateway_webhook_configured'] ? 'Configured' : 'Not configured';
-		$webhookTag = $stats['gateway_webhook_configured'] ? 'pnc-tag--ok' : 'pnc-tag--err';
+		$webhookTag = $stats['gateway_webhook_configured'] ? 'ipsBadge_positive' : 'ipsBadge_negative';
 		$h .= '<div class="pnc-card ' . $webhookClass . '">'
 			. '<div class="pnc-card-label">Webhook</div>'
-			. '<div class="pnc-card-value"><span class="pnc-tag ' . $webhookTag . '">' . $webhookLabel . '</span></div>'
+			. '<div class="pnc-card-value"><span class="ipsBadge ' . $webhookTag . '">' . $webhookLabel . '</span></div>'
 			. '<div class="pnc-card-sub">URL + signing secret</div>'
 			. '</div>';
 
 		/* Replay task */
 		$replayClass = $stats['replay_recent_run'] === TRUE ? 'pnc-card--ok' : ( $stats['replay_recent_run'] === NULL ? 'pnc-card--ok' : 'pnc-card--warn' );
-		$replayTag = $stats['replay_recent_run'] === TRUE ? 'pnc-tag--ok' : ( $stats['replay_recent_run'] === NULL ? 'pnc-tag--ok' : 'pnc-tag--warn' );
+		$replayTag = $stats['replay_recent_run'] === TRUE ? 'ipsBadge_positive' : ( $stats['replay_recent_run'] === NULL ? 'ipsBadge_positive' : 'ipsBadge_warning' );
 		$replayLabel = $stats['replay_recent_run'] === TRUE ? 'Healthy' : ( $stats['replay_recent_run'] === NULL ? 'Pending' : 'Stale' );
 		$replayTime = $this->formatTimestamp( $stats['replay_last_run_at'] );
 		$h .= '<div class="pnc-card ' . $replayClass . '">'
 			. '<div class="pnc-card-label">Replay Task</div>'
-			. '<div class="pnc-card-value"><span class="pnc-tag ' . $replayTag . '">' . $replayLabel . '</span></div>'
+			. '<div class="pnc-card-value"><span class="ipsBadge ' . $replayTag . '">' . $replayLabel . '</span></div>'
 			. '<div class="pnc-card-sub">Last run: ' . $this->escape( $replayTime ) . '</div>'
 			. '</div>';
 
@@ -140,11 +136,11 @@ class _integrity extends \IPS\Dispatcher\Controller
 		$h .= '</div>';
 
 		$h .= '<table class="pnc-table">';
-		$h .= '<tr><td style="width:240px;font-weight:600;">Events processed (last run)</td><td>' . $this->escape( (string) $stats['replay_last_replayed_count'] ) . '</td></tr>';
-		$h .= '<tr><td style="font-weight:600;">Last event cursor</td><td>' . $this->escape( $this->formatTimestamp( $stats['replay_last_event_created'] ) ) . '</td></tr>';
-		$h .= '<tr><td style="font-weight:600;">' . $this->escape( \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_replay_lookback' ) ) . '</td><td>' . $this->escape( (string) $stats['replay_config_lookback'] ) . 's</td></tr>';
-		$h .= '<tr><td style="font-weight:600;">' . $this->escape( \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_replay_overlap' ) ) . '</td><td>' . $this->escape( (string) $stats['replay_config_overlap'] ) . 's</td></tr>';
-		$h .= '<tr><td style="font-weight:600;">' . $this->escape( \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_replay_max_events' ) ) . '</td><td>' . $this->escape( (string) $stats['replay_config_max_events'] ) . '</td></tr>';
+		$h .= '<tr><td style="width:240px;"><strong>Events processed (last run)</strong></td><td>' . $this->escape( (string) $stats['replay_last_replayed_count'] ) . '</td></tr>';
+		$h .= '<tr><td><strong>Last event cursor</strong></td><td>' . $this->escape( $this->formatTimestamp( $stats['replay_last_event_created'] ) ) . '</td></tr>';
+		$h .= '<tr><td><strong>' . $this->escape( \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_replay_lookback' ) ) . '</strong></td><td>' . $this->escape( (string) $stats['replay_config_lookback'] ) . 's</td></tr>';
+		$h .= '<tr><td><strong>' . $this->escape( \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_replay_overlap' ) ) . '</strong></td><td>' . $this->escape( (string) $stats['replay_config_overlap'] ) . 's</td></tr>';
+		$h .= '<tr><td><strong>' . $this->escape( \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_replay_max_events' ) ) . '</strong></td><td>' . $this->escape( (string) $stats['replay_config_max_events'] ) . '</td></tr>';
 		$h .= '</table>';
 		$h .= '</div>';
 
@@ -419,7 +415,7 @@ class _integrity extends \IPS\Dispatcher\Controller
 
 			$output .= '<tr>'
 				. '<td style="white-space:nowrap;">' . $this->escape( $this->formatTimestamp( isset( $row['time'] ) ? (int) $row['time'] : NULL ) ) . '</td>'
-				. '<td><span class="pnc-tag pnc-tag--err">' . $this->escape( $catShort ) . '</span></td>'
+				. '<td><span class="ipsBadge ipsBadge_negative">' . $this->escape( $catShort ) . '</span></td>'
 				. '<td>' . $this->escape( $message ) . '</td>'
 				. '</tr>';
 		}
@@ -455,7 +451,7 @@ class _integrity extends \IPS\Dispatcher\Controller
 				. '<td style="white-space:nowrap;">' . $this->escape( $date ) . '</td>'
 				. '<td>' . $this->escape( isset( $row['paynow_total_display'] ) ? (string) $row['paynow_total_display'] : '-' ) . '</td>'
 				. '<td>' . $this->escape( isset( $row['ips_total_display'] ) ? (string) $row['ips_total_display'] : '-' ) . '</td>'
-				. '<td><span class="pnc-tag pnc-tag--warn">' . $this->escape( isset( $row['mismatch_display'] ) ? (string) $row['mismatch_display'] : '-' ) . '</span></td>'
+				. '<td><span class="ipsBadge ipsBadge_warning">' . $this->escape( isset( $row['mismatch_display'] ) ? (string) $row['mismatch_display'] : '-' ) . '</span></td>'
 				. '</tr>';
 		}
 		$output .= '</tbody></table>';
