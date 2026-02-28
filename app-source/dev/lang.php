@@ -158,4 +158,8 @@ $lang = array(
 'xpaynowcheckout_missing_order_id'	=> 'Cannot refund: no PayNow order ID found on transaction.',
 'xpaynowcheckout_payment_cancelled'	=> 'Payment was cancelled.',
 
+/* XENNTEC ACP Tab */
+'menutab__xenntec'	=> 'XENNTEC Apps',
+'menutab__xenntec_icon'	=> 'times',
+
 );
