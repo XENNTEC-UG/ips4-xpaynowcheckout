@@ -85,6 +85,7 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		}
 
 		/* Persist transaction so $transaction->id is available for metadata */
+		$transaction->status = \IPS\nexus\Transaction::STATUS_GATEWAY_PENDING;
 		$transaction->save();
 
 		/* Resolve or create PayNow customer */
