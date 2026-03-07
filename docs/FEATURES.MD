@@ -84,10 +84,11 @@
 - IPS coupon forwarding — DONE (v1.0.10). `calculateInvoiceDiscount()` + `createOneTimePaynowCoupon()` + `auth()` integration with math verification and fallback.
 - Currency validation in `checkValidity()` — N/A (PayNow API validates currency at runtime; current `checkValidity()` is adequate).
 
-### Phase 5 — Subscription Support (Webhook Subscribed, Handlers Pending)
-- Webhook subscriptions auto-created for `OnSubscriptionActivated`, `OnSubscriptionRenewed`, `OnSubscriptionCanceled`.
-- Event dispatch routes to `handleSubscriptionEvent()` stub — events are received and acknowledged but not yet processed.
-- Recurring billing support in `auth()` with line-level `subscription: true` not yet integrated.
+### Phase 5 — Subscription Support (NOT YET IMPLEMENTED)
+- Webhook subscriptions are auto-created for `OnSubscriptionActivated`, `OnSubscriptionRenewed`, `OnSubscriptionCanceled` but **event handlers are stubs** (TODO).
+- Event dispatch routes to `handleSubscriptionEvent()` which acknowledges events but performs no state changes.
+- Recurring billing support in `auth()` with line-level `subscription: true` is not yet integrated.
+- **Do not rely on subscription features in production** — this phase is scaffolded for future implementation only.
 
 ## Audit-Backed Parity Backlog (2026-02-24)
 
