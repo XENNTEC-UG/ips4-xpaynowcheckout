@@ -1,6 +1,6 @@
 # X PayNow Checkout Runtime Verification
 
-Current runtime baseline is `v1.0.0` / `10000` (skeleton).
+Current runtime baseline is `v1.0.16` / `10016`.
 
 ## Environment Preconditions
 
@@ -19,14 +19,14 @@ These checks validate the skeleton is correctly installed before any TODO stubs 
 - [ ] Module `front/webhook` registered in `core_modules`.
 - [ ] Gateway appears in ACP payment method selection (`X PayNow Checkout`).
 - [ ] No schema errors for `pnc_webhook_forensics` table.
-- [ ] Hooks registered in `core_hooks` (5 entries).
+- [ ] Hooks registered in `core_hooks` (6 entries: code_GatewayModel, theme_pnc_clients_settle, theme_pnc_print_settle, code_memberProfileTab, invoiceViewHook, couponNameHook).
 - [ ] Tasks registered in `core_tasks` (2 entries: `pncWebhookReplay`, `pncIntegrityMonitor`).
 - [ ] Extensions discovered via `data/extensions.json`.
 
 ### 2. ACP Navigation
 - [ ] Integrity panel accessible at `admin/?app=xpaynowcheckout&module=monitoring&controller=integrity`.
 - [ ] Forensics viewer accessible at `admin/?app=xpaynowcheckout&module=monitoring&controller=forensics`.
-- [ ] ACP menu entries appear under Nexus tab.
+- [ ] ACP menu entries appear under XENNTEC Apps tab (accordion sidebar).
 
 ### 3. Gateway Settings Form
 - [ ] API key field renders.
@@ -39,9 +39,9 @@ These checks validate the skeleton is correctly installed before any TODO stubs 
 ## Post-Phase-1 Smoke Checks (After Core Checkout Implementation)
 
 ### 4. Signature Validation
-- [ ] Missing signature headers → HTTP `403` + forensic row.
-- [ ] Invalid signature → HTTP `403` + forensic row.
-- [ ] Stale timestamp (>300s) → HTTP `403` + forensic row.
+- [ ] Missing signature headers → HTTP `401` + forensic row.
+- [ ] Invalid signature → HTTP `401` + forensic row.
+- [ ] Stale timestamp (>300s) → HTTP `401` + forensic row (failure_reason=`timestamp_too_old`).
 - [ ] Valid signature → event processing (HTTP `200`).
 
 ### 5. Checkout Flow
@@ -60,7 +60,7 @@ These checks validate the skeleton is correctly installed before any TODO stubs 
 
 ### 8. Snapshot Persistence
 - [ ] `xpaynowcheckout_snapshot` written to `t_extra`.
-- [ ] Snapshot includes: `paynow_order_id`, `paynow_pretty_id`, `subtotal_minor`, `tax_minor`, `total_minor`, `total_display`, `payment_method`, `has_total_mismatch`.
+- [ ] Snapshot includes: `paynow_order_id`, `paynow_pretty_id`, `subtotal_minor`, `tax_minor`, `total_minor`, `total_display`, `billing_name`, `billing_email`, `billing_country`, `has_total_mismatch`, `total_difference_tax_explained`, `captured_at`, `captured_at_iso`.
 
 ## Post-Phase-2 Checks (After Refund & Chargeback)
 

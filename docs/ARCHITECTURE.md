@@ -302,14 +302,14 @@ PayNow sends OnOrderCompleted webhook
         ▼
 webhook.php::manage()
         │
-        ├─ Verify HMAC signature (PayNow-Signature + PayNow-Timestamp)
-        ├─ Parse payload, extract order data
-        ├─ Find IPS transaction via metadata.ips_transaction_id
-        ├─ Fetch full order details: GET /v1/stores/{storeId}/orders/{orderId}
-        ├─ Build settlement snapshot (subtotal, tax, total, method, refs)
-        ├─ Store snapshot in transaction t_extra
+        ├─ Verify HMAC signature (multi-secret iteration)
+        ├─ Enforce timestamp freshness (300-second tolerance)
+        ├─ Parse payload (event_type / event_id / body)
+        ├─ Resolve IPS transaction via 3-level fallback
+        ├─ Build settlement snapshot from webhook body
+        ├─ Store snapshot in transaction t_extra and invoice i_status_extra
         ├─ Set transaction gw_id = PayNow order ID
-        ├─ Approve transaction → IPS calls invoice->markPaid()
+        ├─ Approve transaction via checkFraudRulesAndCapture()
         │
         ▼
 Invoice marked paid → Nexus creates purchases
@@ -345,13 +345,19 @@ PayNow detects chargeback
 OnChargeback webhook
         │
         ├─ Find IPS transaction
-        ├─ If chargeback_ban enabled → ban member
-        ├─ Update transaction status
+        ├─ Store chargeback metadata in t_extra
+        ├─ Set transaction status to STATUS_DISPUTED
+        ├─ If chargeback_ban enabled → ban member permanently
+        ├─ Revoke benefits (invoice markUnpaid/canceled)
+        ├─ Send admin notification
         │
         ▼
 (Later) OnChargebackClosed webhook
         │
-        └─ Log resolution
+        ├─ Find IPS transaction
+        ├─ Update chargeback metadata with resolution
+        ├─ If won → restore STATUS_PAID, re-mark invoice paid
+        └─ If lost → set STATUS_REFUNDED
 ```
 
 ## 5. Settlement Snapshots
@@ -360,23 +366,26 @@ When `OnOrderCompleted` fires, build and store a normalized snapshot in `t_extra
 
 ```php
 $snapshot = array(
-    'paynow_order_id'       => $order['id'],
-    'paynow_pretty_id'      => $order['pretty_id'],      // "pn-XXXXX"
-    'paynow_payment_id'     => $payment['id'],
-    'payment_method'        => $payment['method']['type'],
-    'subtotal_minor'        => (int) $order['subtotal_amount'],
-    'subtotal_display'      => (string) $order['subtotal_amount_str'],
-    'tax_minor'             => (int) $order['tax_amount'],
-    'tax_display'           => (string) $order['tax_amount_str'],
-    'discount_minor'        => (int) $order['discount_amount'],
-    'discount_display'      => (string) $order['discount_amount_str'],
-    'total_minor'           => (int) $order['total_amount'],
-    'total_display'         => (string) $order['total_amount_str'],
-    'currency'              => (string) $order['currency'],
-    'billing_country'       => $order['billing_country'],
-    'ips_invoice_total'     => $ipsInvoiceTotal,
-    'has_total_mismatch'    => ($order['total_amount'] !== $ipsInvoiceTotal),
-    'completed_at'          => $order['completed_at'],
+    'captured_at'                    => time(),
+    'captured_at_iso'                => gmdate('Y-m-d H:i:s') . ' UTC',
+    'paynow_order_id'                => $body['id'],
+    'paynow_pretty_id'               => $body['pretty_id'],      // "pn-XXXXX"
+    'currency'                       => strtoupper($body['currency']),
+    'subtotal_minor'                 => (int) $body['subtotal_amount'],
+    'subtotal_display'               => (string) $body['subtotal_amount_str'],
+    'tax_minor'                      => (int) $body['tax_amount'],
+    'tax_display'                    => (string) $body['tax_amount_str'],
+    'discount_minor'                 => (int) $body['discount_amount'],
+    'discount_display'               => (string) $body['discount_amount_str'],
+    'total_minor'                    => (int) $body['total_amount'],
+    'total_display'                  => (string) $body['total_amount_str'],
+    'billing_name'                   => $body['billing_name'],
+    'billing_email'                  => $body['billing_email'],
+    'billing_country'                => $body['billing_country'],
+    'completed_at'                   => $body['completed_at'],
+    'ips_invoice_total'              => $ipsInvoiceTotal,
+    'has_total_mismatch'             => ($totalMinor !== $ipsInvoiceTotal),
+    'total_difference_tax_explained' => $taxExplained,
 );
 ```
 

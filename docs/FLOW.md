@@ -60,15 +60,20 @@ webhook.php::manage()
         ├─ Dispatch to event-specific handler
         │
         ▼
-handleOrderCompleted($payload, $gateway)
+handleOrderCompleted($body, $gateway)
         │
-        ├─ Extract order data from payload
-        ├─ Resolve IPS transaction via metadata.ips_transaction_id
-        ├─ Fetch full order details: GET /v1/stores/{storeId}/orders/{orderId}
-        ├─ Build settlement snapshot (subtotal, tax, discount, total, method, refs)
+        ├─ Resolve IPS transaction via 3-level fallback:
+        │     1. body.metadata.ips_transaction_id
+        │     2. body.checkout.metadata.ips_transaction_id
+        │     3. DB lookup by order_id/checkout_id/id as gw_id
+        ├─ Check idempotency (skip if already paid/refunded)
+        ├─ Build settlement snapshot from webhook body
+        │     (subtotal, tax, discount, total, billing info, mismatch detection)
         ├─ Store snapshot in t_extra (xpaynowcheckout_snapshot key)
+        │     and invoice i_status_extra
         ├─ Update t_gw_id = PayNow order ID
-        ├─ Approve transaction → triggers invoice->markPaid()
+        ├─ Approve transaction via checkFraudRulesAndCapture()
+        │     → triggers invoice->markPaid()
         │
         ▼
 Invoice marked paid → Nexus creates purchases
@@ -91,9 +96,10 @@ PayNow processes refund
         ▼
 OnRefund webhook
         │
-        ├─ Resolve IPS transaction
-        ├─ Update settlement snapshot with refund data
-        ├─ Update transaction status to refunded
+        ├─ Resolve IPS transaction (3-level fallback)
+        ├─ Check terminal status gating (completed/approved only)
+        ├─ Store refund metadata in t_extra (refund_id, payment_id, amount, status)
+        ├─ Set transaction status to STATUS_REFUNDED
         │
         ▼
 Transaction refunded in IPS
@@ -107,15 +113,20 @@ PayNow detects chargeback from upstream gateway
         ▼
 OnChargeback webhook
         │
-        ├─ Resolve IPS transaction
-        ├─ If chargeback_ban enabled → ban member
-        ├─ Update settlement snapshot with chargeback data
-        ├─ Log chargeback event
+        ├─ Resolve IPS transaction (3-level fallback)
+        ├─ Store chargeback metadata in t_extra
+        ├─ Set transaction status to STATUS_DISPUTED
+        ├─ If chargeback_ban enabled → ban member permanently
+        ├─ Revoke benefits (invoice markUnpaid/canceled)
+        ├─ Send admin notification
         │
         ▼
 (Later) OnChargebackClosed webhook
         │
-        ├─ Log chargeback resolution
+        ├─ Resolve IPS transaction
+        ├─ Update chargeback metadata with resolution + close_event_id
+        ├─ If won → restore STATUS_PAID, re-mark invoice paid if balance zero
+        ├─ If lost → set STATUS_REFUNDED
         └─ (No automatic unban — admin reviews manually)
 ```
 
