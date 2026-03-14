@@ -287,11 +287,9 @@ class _pncWebhookReplay extends \IPS\Task
 			$eventType = isset( $delivery['event_type'] ) ? (string) $delivery['event_type'] : '';
 			$payload = isset( $delivery['payload'] ) ? (string) $delivery['payload'] : '';
 
-			/* Normalize event type: PayNow delivery history may use PascalCase */
-			$eventTypeNormalized = $eventType;
+			/* Filter: only required event types (PascalCase from PayNow delivery history) */
 			if ( !\in_array( $eventType, $requiredTypes, TRUE ) )
 			{
-				/* Check SCREAMING_SNAKE_CASE version (ON_ORDER_COMPLETED etc.) */
 				continue;
 			}
 

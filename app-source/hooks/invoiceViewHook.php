@@ -378,6 +378,8 @@ class xpaynowcheckout_hook_invoiceViewHook extends _HOOK_CLASS_
 	protected function _pncFormatMinorAmount( $minor, $snapshot )
 	{
 		$currency = !empty( $snapshot['currency'] ) ? mb_strtoupper( $snapshot['currency'] ) : '';
-		return $currency . ' ' . number_format( (int) $minor / 100, 2 );
+		$decimals = $currency !== '' ? \IPS\nexus\Money::numberOfDecimalsForCurrency( $currency ) : 2;
+		$divisor = \pow( 10, $decimals );
+		return $currency . ' ' . number_format( (int) $minor / $divisor, $decimals );
 	}
 }

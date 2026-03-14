@@ -46,7 +46,7 @@ class _PaynowPaymentSummary extends \IPS\core\MemberACPProfile\Block
 			$where = array(
 				array( \IPS\Db::i()->in( 't_method', $gatewayIds ) ),
 				array( 't_member=?', $this->member->member_id ),
-				array( \IPS\Db::i()->in( 't_status', array( 'dspd', 'rfnd', 'prfd' ) ) ),
+				array( \IPS\Db::i()->in( 't_status', array( \IPS\nexus\Transaction::STATUS_DISPUTED, \IPS\nexus\Transaction::STATUS_REFUNDED, \IPS\nexus\Transaction::STATUS_PART_REFUNDED ) ) ),
 			);
 
 			$disputeCount = 0;
@@ -58,7 +58,7 @@ class _PaynowPaymentSummary extends \IPS\core\MemberACPProfile\Block
 			{
 				$extra = json_decode( $row['t_extra'], TRUE );
 
-				if ( $row['t_status'] === 'dspd' )
+				if ( $row['t_status'] === \IPS\nexus\Transaction::STATUS_DISPUTED )
 				{
 					$disputeCount++;
 					if ( $latestChargeback === NULL AND isset( $extra['xpaynowcheckout_chargeback'] ) AND \is_array( $extra['xpaynowcheckout_chargeback'] ) )
@@ -66,7 +66,7 @@ class _PaynowPaymentSummary extends \IPS\core\MemberACPProfile\Block
 						$latestChargeback = $extra['xpaynowcheckout_chargeback'];
 					}
 				}
-				elseif ( $row['t_status'] === 'rfnd' OR $row['t_status'] === 'prfd' )
+				elseif ( $row['t_status'] === \IPS\nexus\Transaction::STATUS_REFUNDED OR $row['t_status'] === \IPS\nexus\Transaction::STATUS_PART_REFUNDED )
 				{
 					$refundCount++;
 				}
@@ -108,7 +108,7 @@ class _PaynowPaymentSummary extends \IPS\core\MemberACPProfile\Block
 				$html .= "<div class='ipsDataItem_generic ipsType_right'>";
 				if ( isset( $latestChargeback['reason'] ) AND $latestChargeback['reason'] !== '' )
 				{
-					$html .= htmlspecialchars( $latestChargeback['reason'] );
+					$html .= htmlspecialchars( $latestChargeback['reason'], ENT_QUOTES | ENT_DISALLOWED, 'UTF-8' );
 				}
 				if ( isset( $latestChargeback['created_at'] ) )
 				{

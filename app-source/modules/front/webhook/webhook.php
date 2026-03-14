@@ -567,10 +567,7 @@ class _webhook extends \IPS\Dispatcher\Controller
 		$ipsInvoiceTotal = 0;
 		try
 		{
-			$ipsMoney = $transaction->amount;
-			$decimals = \IPS\nexus\Money::numberOfDecimalsForCurrency( $ipsMoney->currency );
-			$multiplier = new \IPS\Math\Number( '1' . \str_repeat( '0', $decimals ) );
-			$ipsInvoiceTotal = (int) (string) $ipsMoney->amount->multiply( $multiplier );
+			$ipsInvoiceTotal = \IPS\xpaynowcheckout\XPaynowCheckout::moneyToMinorUnit( $transaction->amount );
 		}
 		catch ( \Exception $e ) {}
 

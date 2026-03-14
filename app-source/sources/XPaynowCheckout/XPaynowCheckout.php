@@ -119,54 +119,16 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 				catch ( \Exception $e )
 				{
 					\IPS\Log::log( $e, 'xpaynowcheckout_coupon' );
-					/* Fallback: consolidate to single line with transaction amount */
-					$invoiceLabel = \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_payment_invoice', FALSE, array( 'sprintf' => array( $transaction->invoice->id ) ) );
-					\IPS\Member::loggedIn()->language()->parseOutputForDisplay( $invoiceLabel );
-					$fallbackDescription = $invoiceLabel;
-					if ( \mb_strlen( $fallbackDescription ) < 25 )
-					{
-						$fallbackDescription = \str_pad( $fallbackDescription, 25, '.' );
-					}
-
-					$lines = array( array(
-						'inline_product' => array(
-							'name'                    => $invoiceLabel,
-							'slug'                    => 'ips-t' . $transaction->id . '-consolidated',
-							'description'             => $fallbackDescription,
-							'price'                   => $transactionMinor,
-							'allow_one_time_purchase' => TRUE,
-						),
-						'quantity'     => 1,
-						'subscription' => FALSE,
-					) );
+					$lines = $this->buildConsolidatedFallbackLine( $transaction, $transactionMinor );
 				}
 			}
 			else
 			{
-				/* Math mismatch safety: consolidate to transaction amount */
 				\IPS\Log::log(
 					'Coupon math mismatch: lineTotal=' . $lineItemsTotal . ' discount=' . $discountInfo['amount_minor'] . ' txn=' . $transactionMinor,
 					'xpaynowcheckout_coupon'
 				);
-				$invoiceLabel = \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_payment_invoice', FALSE, array( 'sprintf' => array( $transaction->invoice->id ) ) );
-				\IPS\Member::loggedIn()->language()->parseOutputForDisplay( $invoiceLabel );
-				$fallbackDescription = $invoiceLabel;
-				if ( \mb_strlen( $fallbackDescription ) < 25 )
-				{
-					$fallbackDescription = \str_pad( $fallbackDescription, 25, '.' );
-				}
-
-				$lines = array( array(
-					'inline_product' => array(
-						'name'                    => $invoiceLabel,
-						'slug'                    => 'ips-t' . $transaction->id . '-consolidated',
-						'description'             => $fallbackDescription,
-						'price'                   => $transactionMinor,
-						'allow_one_time_purchase' => TRUE,
-					),
-					'quantity'     => 1,
-					'subscription' => FALSE,
-				) );
+				$lines = $this->buildConsolidatedFallbackLine( $transaction, $transactionMinor );
 			}
 		}
 
@@ -495,7 +457,7 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	 * @param	\IPS\nexus\Money	$money	Money object
 	 * @return	int
 	 */
-	protected function moneyToMinorUnit( \IPS\nexus\Money $money )
+	public static function moneyToMinorUnit( \IPS\nexus\Money $money )
 	{
 		$decimals = \IPS\nexus\Money::numberOfDecimalsForCurrency( $money->currency );
 		$multiplier = new \IPS\Math\Number( '1' . \str_repeat( '0', $decimals ) );
@@ -690,6 +652,38 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	}
 
 	/**
+	 * Build a single consolidated fallback line item for the transaction amount.
+	 *
+	 * Used when coupon creation fails or discount math doesn't match.
+	 *
+	 * @param	\IPS\nexus\Transaction	$transaction		Transaction
+	 * @param	int						$transactionMinor	Transaction amount in minor units
+	 * @return	array
+	 */
+	protected function buildConsolidatedFallbackLine( \IPS\nexus\Transaction $transaction, $transactionMinor )
+	{
+		$invoiceLabel = \IPS\Member::loggedIn()->language()->addToStack( 'xpaynowcheckout_payment_invoice', FALSE, array( 'sprintf' => array( $transaction->invoice->id ) ) );
+		\IPS\Member::loggedIn()->language()->parseOutputForDisplay( $invoiceLabel );
+		$fallbackDescription = $invoiceLabel;
+		if ( \mb_strlen( $fallbackDescription ) < 25 )
+		{
+			$fallbackDescription = \str_pad( $fallbackDescription, 25, '.' );
+		}
+
+		return array( array(
+			'inline_product' => array(
+				'name'                    => $invoiceLabel,
+				'slug'                    => 'ips-t' . $transaction->id . '-consolidated',
+				'description'             => $fallbackDescription,
+				'price'                   => $transactionMinor,
+				'allow_one_time_purchase' => TRUE,
+			),
+			'quantity'     => 1,
+			'subscription' => FALSE,
+		) );
+	}
+
+	/**
 	 * Resolve or create PayNow customer for transaction member.
 	 *
 	 * @param	\IPS\nexus\Transaction	$transaction	Transaction
@@ -764,12 +758,23 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	}
 
 	/**
+	 * @brief	Per-request cache for collectAlertStats()
+	 */
+	protected static $alertStatsCache = NULL;
+
+	/**
 	 * Collect lightweight alert stats for AdminNotification checks.
+	 * Cached per-request to avoid repeated DB queries from subtitle()/selfDismiss().
 	 *
 	 * @return	array
 	 */
 	public static function collectAlertStats()
 	{
+		if ( static::$alertStatsCache !== NULL )
+		{
+			return static::$alertStatsCache;
+		}
+
 		$stats = array(
 			'webhook_error_count_24h' => 0,
 			'replay_recent_run'       => NULL,
@@ -834,6 +839,7 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 		}
 		catch ( \Exception $e ) {}
 
+		static::$alertStatsCache = $stats;
 		return $stats;
 	}
 
@@ -850,20 +856,28 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 			return NULL;
 		}
 
+		/* Nothing to search for — skip API call */
+		if ( empty( $settings['webhook_id'] ) AND empty( $settings['webhook_url'] ) )
+		{
+			return NULL;
+		}
+
 		try
 		{
+			$webhooks = static::apiRequest( 'get', '/stores/' . $settings['store_id'] . '/webhooks', $settings );
+			if ( !\is_array( $webhooks ) )
+			{
+				return NULL;
+			}
+
 			/* Fast path: webhook ID stored */
 			if ( !empty( $settings['webhook_id'] ) )
 			{
-				$webhooks = static::apiRequest( 'get', '/stores/' . $settings['store_id'] . '/webhooks', $settings );
-				if ( \is_array( $webhooks ) )
+				foreach ( $webhooks as $wh )
 				{
-					foreach ( $webhooks as $wh )
+					if ( isset( $wh['id'] ) AND $wh['id'] === $settings['webhook_id'] )
 					{
-						if ( isset( $wh['id'] ) AND $wh['id'] === $settings['webhook_id'] )
-						{
-							return $wh;
-						}
+						return $wh;
 					}
 				}
 			}
@@ -871,15 +885,11 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 			/* Fallback: find by URL match */
 			if ( !empty( $settings['webhook_url'] ) )
 			{
-				$webhooks = static::apiRequest( 'get', '/stores/' . $settings['store_id'] . '/webhooks', $settings );
-				if ( \is_array( $webhooks ) )
+				foreach ( $webhooks as $wh )
 				{
-					foreach ( $webhooks as $wh )
+					if ( isset( $wh['url'] ) AND $wh['url'] === $settings['webhook_url'] )
 					{
-						if ( isset( $wh['url'] ) AND $wh['url'] === $settings['webhook_url'] )
-						{
-							return $wh;
-						}
+						return $wh;
 					}
 				}
 			}
