@@ -1,1 +1,14 @@
-[]
+[
+	{
+		"key": "xenntec_lic_xpaynowcheckout_key",
+		"default": ""
+	},
+	{
+		"key": "xenntec_lic_xpaynowcheckout_cache",
+		"default": ""
+	},
+	{
+		"key": "xenntec_lic_config",
+		"default": ""
+	}
+]
