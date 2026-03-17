@@ -14,16 +14,5 @@
             "restriction": "forensics_view",
             "subcontrollers": ""
         }
-    },
-    "xenntec": {
-        "license": {
-            "tab": "xenntec",
-            "key": "xpaynowcheckout_license",
-            "title": "__app_xpaynowcheckout_license",
-            "controller": "license",
-            "do": "",
-            "restriction": "manage",
-            "subcontrollers": ""
-        }
     }
 }
