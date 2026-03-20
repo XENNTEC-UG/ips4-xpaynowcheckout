@@ -154,9 +154,9 @@ Replay state available in ACP integrity panel
 pncIntegrityMonitor task runs (every 5 min)
         │
         ├─ Collect alert stats via gateway::collectAlertStats()
-        │     Count webhook errors in last 1h/24h
+        │     Count webhook errors in last 24h (ack-aware filtering)
         │     Check replay state freshness
-        │     Count total mismatches
+        │     Count PayNow-vs-IPS total mismatches (30d)
         ├─ Raise/clear admin notifications based on thresholds
         ├─ Prune forensics rows older than 90 days
         │

@@ -1,6 +1,6 @@
 # X PayNow Checkout — Architecture Document
 
-> **Version**: 1.0.16
+> **Version**: 1.0.18
 > **App directory**: `xpaynowcheckout`
 > **Task prefix**: `pnc`
 > **DB table prefix**: `pnc_`
@@ -399,7 +399,7 @@ Records failed webhook deliveries for security audit.
 | forensic_id | BIGINT PK AUTO | Row ID |
 | event_type | VARCHAR(64) | Webhook event type |
 | event_id | VARCHAR(64) NULL | PayNow event ID |
-| failure_reason | VARCHAR(64) | `invalid_payload`, `missing_signature`, `invalid_signature`, `timestamp_too_old` |
+| failure_reason | VARCHAR(64) | `invalid_gateway`, `missing_secret`, `missing_signature`, `invalid_signature`, `timestamp_too_old`, `invalid_payload`, `processing_error` |
 | ip_address | VARCHAR(46) | Source IP |
 | http_status | SMALLINT | Response code sent |
 | payload_snippet | TEXT NULL | First 2000 chars of payload |
@@ -417,6 +417,7 @@ All settings stored on `nexus_paymethods.m_settings` (JSON):
 |-----|------|----------|-------------|
 | `api_key` | string | Yes | PayNow API key |
 | `store_id` | string | Yes | PayNow store FlakeId |
+| `default_product_id` | string | No | Optional fallback PayNow product ID (unused when inline products are sent) |
 | `webhook_url` | string | Auto | Webhook endpoint URL |
 | `webhook_secret` | string | Auto | Legacy single HMAC signing secret |
 | `webhook_secrets` | array | Auto | Array of signing secrets (one per event subscription) |

@@ -1,6 +1,6 @@
 # X PayNow Checkout Runtime Verification
 
-Current runtime baseline is `v1.0.16` / `10016`.
+Current runtime baseline is `v1.0.18` / `10018`.
 
 ## Environment Preconditions
 
