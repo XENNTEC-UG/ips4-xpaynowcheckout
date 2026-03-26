@@ -1,6 +1,6 @@
 # X PayNow Checkout — Architecture Document
 
-> **Version**: 1.0.18
+> **Version**: 1.0.19
 > **App directory**: `xpaynowcheckout`
 > **Task prefix**: `pnc`
 > **DB table prefix**: `pnc_`
@@ -433,7 +433,7 @@ All settings stored on `nexus_paymethods.m_settings` (JSON):
 
 | Hook File | Type | Target Class | Purpose |
 |-----------|------|-------------|---------|
-| `code_GatewayModel` | C | `\IPS\nexus\Gateway` | Register `XPaynowCheckout` in `gatewayClasses()` |
+| `code_GatewayModel` | C | `\IPS\nexus\Gateway` | Register `XPaynowCheckout` in `gateways()` |
 | `theme_pnc_clients_settle` | S | `\IPS\Theme\class_nexus_front_clients` | Settlement card in invoice view |
 | `theme_pnc_print_settle` | S | `\IPS\Theme\class_nexus_global_invoices` | Settlement card in print invoice |
 | `code_memberProfileTab` | C | `\IPS\core\extensions\core\MemberACPProfileTabs\Main` | ACP member profile block |
