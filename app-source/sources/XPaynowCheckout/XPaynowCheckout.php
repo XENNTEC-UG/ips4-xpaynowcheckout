@@ -454,6 +454,8 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	/**
 	 * Convert IPS Money to PayNow minor-unit integer safely (no float math).
 	 *
+	 * SYNC-GROUP: gateway-minor-unit — also in xstripecheckout, xpolarcheckout (gateway + webhook)
+	 *
 	 * @param	\IPS\nexus\Money	$money	Money object
 	 * @return	int
 	 */
@@ -567,6 +569,8 @@ class _XPaynowCheckout extends \IPS\nexus\Gateway
 	 *
 	 * IPS Nexus encodes discounts/coupons as invoice items with negative prices.
 	 * This method sums the absolute values of all negative-priced items.
+	 *
+	 * SYNC-GROUP: gateway-invoice-discount — also in xstripecheckout, xpolarcheckout
 	 *
 	 * @param	\IPS\nexus\Transaction	$transaction
 	 * @return	array	array( 'amount_minor' => int, 'names' => array )
