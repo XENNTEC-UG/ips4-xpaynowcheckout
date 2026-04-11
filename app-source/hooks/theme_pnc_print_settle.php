@@ -10,7 +10,7 @@ class xpaynowcheckout_hook_theme_pnc_print_settle extends _HOOK_CLASS_
 {
 
 /* !Hook Data - DO NOT REMOVE */
-public static function hookData(): array {
+public static function hookData() {
  return array_merge_recursive( array (
   'printInvoice' =>
   array (
